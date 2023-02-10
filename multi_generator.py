@@ -21,7 +21,7 @@ def main(input_xml, out_dir):
     csv_file = Path(out_dir, "jpeg_replacements.csv")
     with csv_file.open('w', encoding='utf-8-sig', newline='') as f:
         fieldnames = [
-            'EADUnitID', 'MulMultiMediaRef_tab.Multimedia', 'MulMultiMediaRef_tab(+).DetSource', 'MulMultiMediaRef_tab(+).MulTitle']
+            'EADUnitID', 'MulMultiMediaRef_tab(+).Multimedia', 'MulMultiMediaRef_tab(+).DetSource', 'MulMultiMediaRef_tab(+).MulTitle']
         multi_writer = csv.DictWriter(f, fieldnames=fieldnames)
         multi_writer.writeheader()
         for row in replace_jpegs(input_xml, out_dir):
