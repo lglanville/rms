@@ -9,8 +9,8 @@ def replace_jpegs(input_xml, out_dir):
         ident = r['EADUnitID']
         row = dict(EADUnitID=r['EADUnitID'])
         folder = multimedia_funcs.find_asset_folder(ident)
-        for tif in multimedia_funcs.find_asset(folder):
-            jpeg = create_jpeg(tif, out_dir)
+        for tif in multimedia_funcs.find_assets(folder):
+            jpeg = multimedia_funcs.create_jpeg(tif, out_dir)
             row['MulMultiMediaRef_tab(+).Multimedia'] = jpeg
             row['MulMultiMediaRef_tab(+).DetSource'] = ident
             row['MulMultiMediaRef_tab(+).MulTitle'] = r['EADUnitTitle']
