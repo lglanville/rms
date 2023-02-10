@@ -22,15 +22,6 @@ def create_jpeg(fpath, outdir):
                 '1.5x1+0.7+0.02', str(outfile)])
     return outfile
 
-def reformat(csv_file, dest_dir, jpeg_dir):
-    with open(csv_file, encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            for file in row["unregistered_tif"].split('|'):
-                new_image = move_image(file, dest_dir, row['EADUnitID'])
-                jpeg = create_jpeg(new_image, jpeg_dir)
-                yield [row['irn'], row['EADUnitID'], jpeg]
-
 def find_asset_folder(ident):
     base = r"\\research-cifs.unimelb.edu.au\9730-UniversityArchive-Shared\Digitised_Holdings\Registered"
     try:
