@@ -60,7 +60,6 @@ def make_assets(indir, outdir):
             if fpath.suffix.lower() in ('.tif', '.tiff', '.dng'):
                 jpeg = create_jpeg(fpath, outdir)
                 yield jpeg
-
 def replace_jpegs(input_xml, out_dir):
     for r in record.parse_xml(input_xml):
         ident = r['EADUnitID']
@@ -95,6 +94,7 @@ def replace_jpegs(input_xml, out_dir):
                 row['status'] = 'OK'
             yield row
 
+
 def main(input_xml, out_dir):
     csv_file = Path(out_dir, "jpeg_replacements.csv")
     csv_log = Path(out_dir, "multimedia_log.csv")
@@ -109,7 +109,7 @@ def main(input_xml, out_dir):
         for row in replace_jpegs(input_xml, out_dir):
             log_writer.writerow(row)
             if row.get('Multimedia') is not None:
-                jpeg_row = dict(irn=row.get('MulMultiMediaRef_tab.irn'), Multimedia=row.get('MulMultiMediaRef_tab.irn'))
+                jpeg_row = dict(irn=row.get('MulMultiMediaRef_tab.irn'), Multimedia=row.get('Multimedia'))
                 multi_writer.writerow(jpeg_row)
 
 if __name__ == "__main__":
