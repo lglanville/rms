@@ -1,5 +1,6 @@
 import sys
 import csv
+from pathlib import Path
 from emu_xml_parser import record
 import multimedia_funcs
 
