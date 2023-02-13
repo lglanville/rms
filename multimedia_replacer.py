@@ -38,7 +38,7 @@ def replace_jpegs(input_xml, out_dir):
                         with Image.open(tif) as im:
                             row['TIF_size'] = "{}x{}".format(*im.size)
                             tif_size = im.size
-                    except PIL.Image.DecomperssionBombError as e:
+                    except Image.DecompressionBombError as e:
                         print(e)
                         row['TIF_size'] = "uncalculated"
                         tif_size = (2048, 2048)
