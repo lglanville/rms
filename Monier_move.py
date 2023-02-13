@@ -8,7 +8,7 @@ def move_and_jpeg(csv_file, out_dir):
         reader = csv.DictReader(f)
         for row in reader:
             tif = multimedia_funcs.move_image(row['fpath'], BASE_DIR, row['EADUnitID'])
-            jpeg = create_jpeg(tif, out_dir)
+            jpeg = multimedia_funcs.create_jpeg(tif, out_dir)
             row['MulMultiMediaRef_tab(+).Multimedia'] = jpeg
             yield row
 
