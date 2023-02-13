@@ -7,59 +7,8 @@ import sys
 import csv
 from emu_xml_parser import record
 from PIL import Image
+import multimedia_funcs
 
-BASE_DIR = "\\research-cifs.unimelb.edu.au\9730-UniversityArchive-Shared\Registered"
-
-def create_jpeg(fpath, outdir):
-    fpath = Path(fpath)
-    outfile = Path(outdir, fpath.stem+'.jpg')
-    if not outfile.exists():
-        print("jpegging", fpath.name, "->", outfile.name)
-        subprocess.run(
-            [
-                'magick', 'convert', str(fpath), '-resize', '2048x2048^>',
-                '-quality', '65', '-depth', '8', '-unsharp',
-                '1.5x1+0.7+0.02', str(outfile)])
-    return outfile
-
-def find_asset_folder(ident):
-    base = r"\\research-cifs.unimelb.edu.au\9730-UniversityArchive-Shared\Digitised_Holdings\Registered"
-    try:
-        pre, mid, suf = ident.split('.')
-        folder = Path(base, pre, mid, suf)
-        if folder.exists():
-            return folder
-        else:
-            folder = Path(base, pre, mid, suf[1:])
-            if folder.exists():
-                return folder
-    except ValueError as e:
-        print(e)
-
-
-def find_asset(folder, index):
-    if folder is None:
-        return None
-    tifs = []
-    for root, _, files in os.walk(folder):
-        for file in files:
-            fpath = Path(root, file)
-            if fpath.suffix.lower() in ('.tif', '.tiff'):
-                tifs.append(fpath)
-    try:
-        return tifs[index]
-    except IndexError as e:
-        print(e)
-
-
-def make_assets(indir, outdir):
-    tifs = []
-    for root, _, files in os.walk(indir):
-        for file in files:
-            fpath = Path(root, file)
-            if fpath.suffix.lower() in ('.tif', '.tiff', '.dng'):
-                jpeg = create_jpeg(fpath, outdir)
-                yield jpeg
 def replace_jpegs(input_xml, out_dir):
     for r in record.parse_xml(input_xml):
         ident = r['EADUnitID']
@@ -67,28 +16,34 @@ def replace_jpegs(input_xml, out_dir):
         for page, multimedia in enumerate(r.get("MulMultiMediaRef_tab")):
             row['page'] = page
             row['MulMultiMediaRef_tab.irn'] = multimedia.get("irn")
-            size = (
-                int(multimedia.get("ChaImageWidth")),
-                int(multimedia.get("ChaImageHeight"))
-                    )
-            row['size'] = "{}x{}".format(*size)
+            try:
+                size = (
+                    int(multimedia.get("ChaImageWidth")),
+                    int(multimedia.get("ChaImageHeight"))
+                        )
+                row['size'] = "{}x{}".format(*size)
+            except TypeError as e:
+                print(e, ident)
+                size = (0, 0)
+                row['size'] = "Not in EMu"
             if max(size) < 2000:
                 print(ident, "page", page, "is insufficient size:", size)
-                folder = find_asset_folder(ident)
+                folder = multimedia_funcs.find_asset_folder(ident)
                 row['TIF_folder'] = folder
-                tif = find_asset(folder, page)
-                row['TIF'] = tif
-                if tif is not None:
+                tifs = multimedia_funcs.find_assets(folder)
+                try:
+                    tif = list(tifs)[page]
+                    row['TIF'] = tif
                     with Image.open(tif) as im:
                         row['TIF_size'] = "{}x{}".format(*size)
                         if size != im.size:
                             print(im.size)
-                            jpeg = create_jpeg(tif, out_dir)
+                            jpeg = multimedia_funcs.create_jpeg(tif, out_dir)
                             row['status'] = "JPEG replaced"
                             row['Multimedia'] = jpeg
                         else:
                             row['status'] = "TIF is insufficient quality"
-                else:
+                except IndexError:
                     yield(dict(EADUnitID=ident, page=page, status="Poor quality, no Tif found"))
             else:
                 row['status'] = 'OK'

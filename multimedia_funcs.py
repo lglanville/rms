@@ -30,21 +30,6 @@ def find_asset_folder(ident):
     except ValueError as e:
         print(e)
 
-
-def find_asset(folder, index):
-    if folder is None:
-        return None
-    tifs = []
-    for root, _, files in os.walk(folder):
-        for file in files:
-            fpath = Path(root, file)
-            if fpath.suffix.lower() in ('.tif', '.tiff'):
-                tifs.append(fpath)
-    try:
-        return tifs[index]
-    except IndexError as e:
-        print(e)
-
 def find_assets(folder):
     if folder is None:
         return None
