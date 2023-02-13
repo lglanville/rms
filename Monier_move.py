@@ -15,6 +15,7 @@ def move_and_jpeg(csv_file, out_dir):
 
 def main(in_file, out_file, out_dir):
     with open(out_file, 'w', encoding='utf-8-sig', newline='') as f:
+        fieldnames = ["EADUnitID", "EADUnitTitle", "previous_id", "fpath", "MulMultiMediaRef_tab(+).Multimedia"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in move_and_jpeg(in_file):
