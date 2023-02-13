@@ -34,15 +34,21 @@ def replace_jpegs(input_xml, out_dir):
                 try:
                     tif = list(tifs)[page]
                     row['TIF'] = tif
-                    with Image.open(tif) as im:
-                        row['TIF_size'] = "{}x{}".format(*size)
-                        if size != im.size:
-                            print(im.size)
-                            jpeg = multimedia_funcs.create_jpeg(tif, out_dir)
-                            row['status'] = "JPEG replaced"
-                            row['Multimedia'] = jpeg
-                        else:
-                            row['status'] = "TIF is insufficient quality"
+                    try:
+                        with Image.open(tif) as im:
+                            row['TIF_size'] = "{}x{}".format(*im.size)
+                            tif_size = im.size
+                    except PIL.Image.DecomperssionBombError as e:
+                        print(e)
+                        row['TIF_size'] = "uncalculated"
+                        tif_size = (2048, 2048)
+                    if size != tif_size:
+                        print(im.size)
+                        jpeg = multimedia_funcs.create_jpeg(tif, out_dir)
+                        row['status'] = "JPEG replaced"
+                        row['Multimedia'] = jpeg
+                    else:
+                         row['status'] = "TIF is insufficient quality"
                 except IndexError:
                     yield(dict(EADUnitID=ident, page=page, status="Poor quality, no Tif found"))
             else:
