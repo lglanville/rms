@@ -21,4 +21,4 @@ def main(in_file, out_file, out_dir):
             writer.writerow(row)
 
 if __name__ == '__main__':
-    main(*sys[1:])
+    main(*sys.argv[1:])
