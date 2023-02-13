@@ -18,7 +18,7 @@ def main(in_file, out_file, out_dir):
         fieldnames = ["EADUnitID", "EADUnitTitle", "previous_id", "fpath", "MulMultiMediaRef_tab(+).Multimedia"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for row in move_and_jpeg(in_file):
+        for row in move_and_jpeg(in_file, out_dir):
             writer.writerow(row)
 
 if __name__ == '__main__':
