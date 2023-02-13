@@ -6,7 +6,6 @@ BASE_DIR = r"\\research-cifs.unimelb.edu.au\9730-UniversityArchive-Shared\Digiti
 def move_and_jpeg(csv_file, out_dir):
     with open(csv_file, encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
-        yield reader.fieldnames
         for row in reader:
             tif = multimedia_funcs.move_image(row['fpath'], BASE_DIR, row['EADUnitID'])
             jpeg = create_jpeg(tif, out_dir)
