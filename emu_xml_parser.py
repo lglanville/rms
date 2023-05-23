@@ -26,7 +26,17 @@ class record(dict):
     @classmethod
     def parse_xml(cls, xml_doc):
         "iterator to generate JSON EMu records from xml"
-        tree = etree.parse(xml_doc)
+        with open(xml_doc, encoding='utf-8') as f:
+            text = f.read()
+            for x in range(8):
+                text = text.replace(chr(x), ' ')
+            text = text.replace(chr(19), '')
+            text = text.replace(chr(24), '')
+            text = text.replace(chr(25), '')
+            text = text.replace('\u2014', '-')
+            text = text.replace('\u2013', '-')
+            text = text.replace('encoding="UTF-8"', '')
+        tree = etree.fromstring(text)
         for record in tree.iterfind('tuple'):
             yield cls.parse_tuple(record)
 
