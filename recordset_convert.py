@@ -6,10 +6,39 @@ import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 
+def extract_linear_meterage(extent):
+    e = []
+    lm = 0
+    p = re.compile(r'\(?(\d{1,3}(\.\d{2})?) ?(m|cm)\)?', flags=re.IGNORECASE)
+    for x in extent:
+        m = p.search(x)
+        if m is not None:
+            n = float(m.group(1))
+            if m.group(3).lower() == 'cm':
+                n = n / 100
+            lm += n
+            x = x.replace(m.group(0), '').strip()
+        e.append(x)
+    if lm == 0:
+        lm = None
+    return e, lm
+
+def extract_sources(arch_history):
+    sources = []
+    p = re.compile('sources: (.+)', flags=re.IGNORECASE)
+    if arch_history is not None:
+        for l in arch_history.splitlines():
+            m = p.search(l)
+            if m is not None:
+                sources.append(m.group(1))
+                arch_history = arch_history.replace(m.group(0), '').strip()
+    return sources, arch_history
+
+
 def extract_redirect(html_file):
     p = re.compile(r'window\.location\.href = "(.*)"')
-    with html_file.open() as filter:
-        t = filter.read()
+    with html_file.open() as f:
+        t = f.read()
         m = p.search(t)
         if m is not None:
             return m[1]
@@ -83,22 +112,22 @@ def provenance(record):
 def convert_recordset(record):
     row = {}
     title, full_title = metadata_funcs.shorten_title(record.get('EADUnitTitle'))
-    row['NODE_TITLE'] = title
-    row['Full Title'] = full_title
+    row['NODE_TITLE'] = f"[{record.get('EADUnitID')}] {title}"
+    row['Alternative Title'] = full_title
     if record.get('EADLevelAttribute').lower() == 'series':
         row['Identifier'] = 'UMA-SRE-' + record.get('EADUnitID').replace('.', '')
     row['Scope and Content'] = record.get('EADScopeAndContent')
     row['Access Status'], row['Access Conditions'] = metadata_funcs.get_access(record)
     row['Appraisal'] = record.get('EADAppraisalInformation')
     row['Arrangement'] = record.get('EADArrangement')
-    row['Extent'] = metadata_funcs.flatten_table(record, 'EADExtent_tab')
-    row['Genre/Form'] = metadata_funcs.flatten_table(record, 'EADGenreForm_tab')
+    row['Extent'], row['Linear Meterage'] = extract_linear_meterage(record.findall('EADExtent'))
+    row['Genre/Form'] = [x.split('--')[-1] for x in record.findall('EADGenreForm')]
     row['Collection Category'] = record.get('TitObjectCategory')
     row['Accruals'] = record.get('EADAccruals')
-    row['Archival History'] = record.get('EADCustodialHistory')
+    row['Source of Description'], row['Archival History'] = extract_sources(record.get('EADCustodialHistory'))
     row['Internal Notes'] = record.get('NotNotes')
     row['Subject'] = metadata_funcs.flatten_table(record, 'EADSubject_tab')
-    row['Related Places'] = metadata_funcs.flatten_table(record, 'EADGeographicName_tab')
+    row['Subject (Place)'] = list(record.findall('EADGeographicName'))
     row['###Dates'] = metadata_funcs.format_date(record.get('EADUnitDate'), record.get('EADUnitDateEarliest'), record.get('EADUnitDateLatest'))+'|'
     row['EMu Catalogue IRN'] = record.get('irn')
     row['Descriptive Note'] = record.get('EADOtherFindingAid')
@@ -124,12 +153,13 @@ def create_accession(record):
     acc_lot = record.get('AccAccessionLotRef')
     if acc_lot is not None:
         row = {}
-        acc_num = str(record.get('LotLotNumber'))
+        acc_num = str(acc_lot.get('LotLotNumber'))
+        print(acc_num)
         row['NODE_TITLE'] = acc_lot.get('SummaryData')
         row['Publication Status'] = 'Not for publication'
         row = accession_data(record)
         if acc_num in record['EADUnitID']:
-            row['Identifier'] = 'UMA-ACE-' + record.get('EADUnitID').replace('.')
+            row['Identifier'] = 'UMA-ACE-' + record.get('EADUnitID').replace('.', '')
             row['NODE_TITLE'] = record.get('EADUnitTitle')
         else:
             row['NODE_TITLE'] = acc_lot.get('SummaryData')
@@ -150,21 +180,21 @@ def is_accession(record):
         return False
 
 
-def main(emu_xml, out_dir, accession_template, series_template, log_file=None):
+def main(emu_xml, out_dir, log_file=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
-    templates.add_template('Accession', accession_template)
-    templates.add_template('Series', series_template)
+    templates.add_template('Accession')
+    templates.add_template('Series')
     for r in record.parse_xml(emu_xml):
         row = convert_recordset(r)
         if log_file is not None:
             row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
         if r['EADLevelAttribute'].lower() in ('acquisition', 'consolidation'):
             row = convert_accession(r, row)
-            templates.add_row('Accession', row)
+            templates.add_row('accession', row)
         else:
-            templates.add_row('Series', row)
+            templates.add_row('series', row)
             acc = create_accession(r)
             if acc is not None:
                 templates.add_row('Accession', acc)
@@ -178,15 +208,9 @@ if __name__ == '__main__':
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
     parser.add_argument(
-        'acc_template',
-        help='ReCollect accession csv template')
-    parser.add_argument(
-        'ser_template',
-        help='ReCollect series csv template')
-    parser.add_argument(
         '--audit', '-a',
         help='audit log export')
 
 
     args = parser.parse_args()
-    main(args.input, args.output, args.acc_template, args.ser_template)
+    main(args.input, args.output)

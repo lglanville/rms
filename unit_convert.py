@@ -22,8 +22,9 @@ def convert_name(name):
 def convert_holder(record, out_dir):
     row = {}
     row['NODE_TITLE'] = convert_name(record.get('LocHolderName'))
-    row['Location Type'] = record.get('LocStorageType')
+    row['Unit Type'] = record.get('LocStorageType')
     row['EMu IRN'] = record.get('irn')
+    row['Internal Notes'] = record.get('NotNotes')
     row['Home Location'] = record['LocHolderLocationRef'].get('LocLocationCode')
     items = record.get('LocCurrentLocationRef')
     if items is not None:
@@ -32,7 +33,7 @@ def convert_holder(record, out_dir):
             print('warning: multiple unit records for', record.get('LocHolderName'))
         elif len(units) == 1:
             unit = units[0]
-            row['Contents'] = metadata_funcs.concat_fields(unit.get('EADUnitTitle'), unit.get('EADScopeAndContent'), sep='\n')
+            row['Description'] = metadata_funcs.concat_fields(unit.get('EADUnitTitle'), unit.get('EADScopeAndContent'), sep='\n')
             if unit.get('EADUnitDate') is not None:
                 row['Date Range'] = metadata_funcs.format_date(unit.get('EADUnitDate'), unit.get('EADUnitDateEarliest'), unit.get('EADUnitDateLatest'))
             parent = unit.get('AssParentObjectRef')
@@ -43,17 +44,17 @@ def convert_holder(record, out_dir):
     return row
 
 
-def main(holder_xml, out_dir, template, log_file=None):
+def main(holder_xml, out_dir, log_file=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
-    templates.add_template('Unit', template)
+    templates.add_template('unit')
     for r in record.parse_xml(holder_xml):
         row = convert_holder(r, out_dir)
         if log_file is not None:
             row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        templates.add_row('Unit', row)
-    templates.serialise(out_dir, sort_by='NODE_TITLE')
+        templates.add_row('unit', row)
+    templates.serialise(out_dir, sort_by='NODE_TITLE', rowlimit=10000)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -63,12 +64,9 @@ if __name__ == '__main__':
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
     parser.add_argument(
-        '--template', '-t',
-        help='ReCollect csv template')
-    parser.add_argument(
         '--audit', '-a',
         help='audit log export')
 
 
     args = parser.parse_args()
-    main(args.input, args.output, args.template)
+    main(args.input, args.output)

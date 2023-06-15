@@ -8,41 +8,64 @@ import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 
+def guess_copyright(text):
+    status = None
+    statuses = {
+        "Public domain": "out of copyright",
+        "University copyright": "copyright owned by university of melbourne",
+        "In copyright (publication rights granted)": "research purposes only",
+        "In copyright": "can only be viewed at",
+        "Orphan work": "all reasonable efforts"
+        }
+    for status, words in statuses.items():
+        if words in text.lower():
+            return status
+
+
+
 def identify_template(row):
     """based on some dicey conditional logic, work out what template each item should use"""
     gf = row.get('Genre/Form')
-    template = "Item"
+    template = "item"
     assets = row.get('ASSETS')
+    if assets is not None:
+        exts = {x.suffix for x in assets}
+        if len(exts) > 1:
+            raise TypeError('Multiple asset extensions for record', record)
+        elif len(exts) == 1:
+            if '.jpg' in exts:
+                template = 'Image'
+            elif '.pdf' in exts:
+                template = 'Document'
     if gf is not None:
         gf = '|'.join(gf).lower()
         if gf.startswith('pictures'):
             if 'architectural drawings' in gf:
-                template = 'Plan'
+                template = 'plan'
             elif 'posters' in gf:
-                template = 'Poster'
+                template = 'poster'
             else:
-                template = 'Image'
+                template = 'image'
         elif gf.startswith('moving image'):
             template = 'Moving Image'
         elif gf.startswith('audio recordings'):
-            template = 'Sound'
+            template = 'sound'
         elif gf.startswith('documents'):
-            template = 'Document'
-    else:
-        if assets is not None:
-            exts = {x.suffix for x in assets}
-            if len(exts) > 1:
-                raise TypeError('Multiple asset extensions for record', record)
-            elif len(exts) == 1:
-                if '.jpg' in exts:
-                    template = 'Image'
-                elif '.pdf' in exts:
-                    template = 'Document'
-    if row.get('NODE_TITLE').startswith('Digital Asset:'):
+            template = 'document'
+    if str(row.get('NODE_TITLE')).startswith('Digital Asset:'):
         template = 'Legacy Asset'
     return template
 
-
+def get_sets(record):
+    record_sets = {}
+    for x, y in zip(t.findall(".//atom[@name='EADLevelAttribute']"), t.findall(".//atom[@name='EADUnitTitle']")):
+        if x is not None:
+            if x.text.lower() == 'series':
+                record_sets['Series'] = y.text
+            elif x.text.lower() == 'acquisition':
+                record_sets['Accession'] = y.text
+            elif x.text.lower() == 'acquisition':
+    return record_sets
 
 def get_series(record):
     """Identify the item's series (if it has one)"""
@@ -54,17 +77,23 @@ def get_series(record):
 
 def get_accession(record):
     """Identify the item's accession (if it has one)"""
-    accession = ""
+    accession_name = ""
+    accrued_to = ""
+    lot_number = ""
+    acc_lot = record.get('AccAccessionLotRef')
+    if acc_lot is not None:
+        lot_number = acc_lot.get('LotLotNumber')
     while record.get("AssParentObjectRef") is not None:
         record = record.get("AssParentObjectRef")
         if record.get("EADLevelAttribute") is not None and record['EADLevelAttribute'].lower() == 'acquisition':
-            return record['EADUnitTitle']
+            accession_name = f"{record['EADUnitID']} {record['EADUnitTitle']}"
         elif record.get("EADLevelAttribute") is not None and record['EADLevelAttribute'].lower() == 'consolidation':
-            return record['EADUnitTitle']
-    if accession == "":
-        acc_lot = record.get('AccAccessionLotRef')
-        if acc_lot is not None:
-            return acc_lot['SummaryData']
+            if record.get("EADUnitID") in lot_number:
+                accession_name = f"{record['EADUnitID']} {record['EADUnitTitle']}"
+            else:
+                accession_name = lot_number
+                accrued_to = f"{record['EADUnitID']} {record['EADUnitTitle']}"
+    return accession_name, accrued_to
 
 def get_item(record):
     """Identify the item a sub-item belongs to"""
@@ -144,19 +173,24 @@ def convert_item(record, out_dir):
     row['NODE_TITLE'] = title
     row['Full Title'] = full_title
     row['Series'] = get_series(record)
-    row['Accession'] = get_accession(record)
+    row['Accession'], accrued_to = get_accession(record)
+    if bool(accrued_to):
+        row['Accrued to Accession'] = accrued_to
     row['Part of Item'] = get_item(record)
     row['Scope and Content'] = record.get('EADScopeAndContent')
     row['Dimensions'] = record.get('EADDimensions')
     row['Internal Notes'] = record.get('NotNotes')
     row['Access Status'], row['Access Conditions'] = metadata_funcs.get_access(record)
+    row['Copyright Status'] = guess_copyright(record.get('EADUseRestrictions'))
     row['Conditions of Use and Reproduction'] = record.get('EADUseRestrictions')
     gf = metadata_funcs.flatten_table(record, 'EADGenreForm_tab')
     if gf is not None:
         row['Genre/Form'] = [t.split('--')[-1] for t in gf]
-    row['Genre/Form'] = metadata_funcs.flatten_table(record, 'EADGenreForm_tab')
     row['Subject'] = metadata_funcs.flatten_table(record, 'EADSubject_tab')
-    row['Subject (Person)'] = metadata_funcs.flatten_table(record, 'EADPersonalName_tab')
+    subjects = []
+    subjects.extend(metadata_funcs.flatten_table(record, 'EADPersonalName_tab'))
+    subjects.extend(metadata_funcs.flatten_table(record, 'EADCorporateName_tab'))
+    row['Subject (Agents)'] = subjects
     row['Subject (Organisation)'] = metadata_funcs.flatten_table(record, 'EADCorporateName_tab')
     row['Subject (Place)'] = metadata_funcs.flatten_table(record, 'EADGeographicName_tab')
     row['Subject (Work)'] = metadata_funcs.flatten_table(record, 'EADTitle_tab')
@@ -164,13 +198,9 @@ def convert_item(record, out_dir):
     row['EMu IRN'] = record.get('irn')
     row['Previous System ID'] = record.get('EADUnitID')
     row['Identifier'] = "UMA-ITE-" + record.get('EADUnitID').replace('.', '')
-    location = record.get('LocCurrentLocationRef')
-    home = None
-    if location is not None:
-        home = location.get('LocHolderName')
-        if home is None:
-            home = location.get('LocLocationCode')
-    row['Home Location'] = home
+    location = record.findall('LocCurrentLocationRef')
+    row['Unit'] = record.find('LocHolderName')
+    row['Location if unenclosed'] = record.find('LocLocationCode')
     row.update(previous_ids(record))
     row.update(contributors(record))
     row.update(facet(record))
@@ -195,9 +225,9 @@ def main(item_xml, out_dir, template, log_file=None, batch_id=None):
         row = convert_item(r, out_dir)
         if log_file is not None:
             row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        template_name = identify_template(row)
+        template_name = identify_template(row).lower()
         if templates.get(template_name) is None:
-            templates.add_template(template_name, template)
+            templates.add_template(template_name)
         templates.add_row(template_name, row)
     templates.serialise(out_dir, sort_by='Identifier', batch_id=batch_id)
 

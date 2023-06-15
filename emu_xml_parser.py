@@ -12,6 +12,7 @@ class record(dict):
     def parse_tuple(cls, tuple_elem):
         "Parse out a record within an EMu xml report to JSON"
         new_rec = cls()
+        new_rec.xml = tuple_elem
         for elem in tuple_elem:
             if elem.tag == 'atom':
                 new_rec[elem.attrib['name']] = elem.text
@@ -103,6 +104,18 @@ class record(dict):
             else:
                 row[field] += '|' + value
         return row
+    
+    def findall(self, fieldname):
+        xpath = f".//atom[@name='{fieldname}']"
+        for x in self.xml.findall(xpath):
+            if x.text is not None:
+                yield x.text
+    
+    def find(self, fieldname):
+        xpath = f".//atom[@name='{fieldname}']"
+        x = self.xml.find(xpath)
+        if x is not None:
+            yield x.text
 
     def print_xml(self):
         return etree.tostring(self.to_xml(), pretty_print=True).decode()

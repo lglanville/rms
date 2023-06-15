@@ -3,15 +3,13 @@ from pprint import pprint
 from pathlib import Path
 import shutil
 import re
+from uuid import uuid4
 import multimedia_funcs
 import openpyxl
 from pypdf import PdfWriter, PdfReader
 
-def get_fieldnames(template):
-    """pulls fieldnames form a ReCollect template"""
-    with open(template, encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        return reader.fieldnames
+TEMPLATE_DIR = Path(__file__).parent / "Templates"
+
 
 def order_values(row, fieldnames):
     """Order a dictionary to the exact format and column order required by ReCollect.
@@ -26,7 +24,7 @@ def order_values(row, fieldnames):
         ordered_row[f] = val
     return ordered_row
 
-def find_access(record):
+def find_access(access_conditions):
     """Determine an access status from text in EADAccessRestrictions field text"""
     access_status = "Access not determined"
     acc_status = {
@@ -37,23 +35,22 @@ def find_access(record):
         'part-restricted': 'Access restrictions apply for some items'}
     access_pattern = re.compile(r"(access:? )?(open|closed|restricted|part restricted|part-restricted)", flags=re.IGNORECASE)
     access_status = "Access not determined"
-    access_conditions = record.get('EADAccessRestrictions')
     if access_conditions is not None:
         access_match = access_pattern.search(access_conditions)
         if access_match is not None:
             access_status = acc_status.get(access_match[2].lower())
             access_conditions = access_conditions.replace(access_match[0], '').strip('. ')
-
     return access_status, access_conditions
 
 
 def get_access(record):
     """Traverse up the hierarchy to get the nearest parent record's access status"""
-    access_status, access_conditions = find_access(record)
-    if access_status == "Access not determined":
-        while record.get("AssParentObjectRef") is not None and access_status == "Access not determined":
-            record = record.get("AssParentObjectRef")
-            access_status, access_conditions = find_access(record)
+    access_status = "Access not determined"
+    access_conditions = None
+    for x in record.findall('EADAccessRestrictions'):
+        access_status, access_conditions = find_access(x)
+        if access_status != "Access not determined":
+            break
     return access_status, access_conditions
 
 
@@ -68,6 +65,7 @@ def shorten_title(text):
         return text, ''
 
 def flatten_table(record, key):
+    """Flatten a table field to a list"""
     terms = []
     term_tab = record.get(key)
     if term_tab is not None:
@@ -77,6 +75,7 @@ def flatten_table(record, key):
     return list(filter(None, terms))
 
 def format_date(date_str, earliest, latest):
+    """Format dates to strcuture required by ReCollect"""
     if date_str is None:
         date_str = ''
     if earliest is None:
@@ -96,13 +95,14 @@ def concat_fields(*fields, sep='|'):
             return sep.join(fields)
 
 def get_multimedia(record):
+    """Gat paths for multimedia from temp, or if a pdf from fileshare"""
     asset_data = {'ASSETS': [], '#REDACT': None}
     redacted = None
     multi = record.get('MulMultiMediaRef_tab')
     id = record.get('EADUnitID')
     if multi is not None:
         redact = set([x['AdmPublishWebNoPassword'].lower() for x in multi])
-        if len(redact) == 2:
+        if len(redact) == 2: 
             print('Warning: multiple publishing permissions for record', id)
         if 'no' in redact:
             asset_data['#REDACT'] = 'Yes'
@@ -154,6 +154,8 @@ class Row(dict):
                 self['ASSETS'].remove(x)
 
     def normalise(self, asset_dir):
+        """clean up a row so all values are output as strings, ints or None.
+        Also copies any multimedia to central folder"""
         sheet_row = []
         if self.get('ASSETS') is not None:
             self.concat_pdfs(asset_dir)
@@ -161,13 +163,14 @@ class Row(dict):
         self.copy_assets(asset_dir, 'ATTACHMENTS')
         for key, value in self.items():
             if type(value) == list:
-                value = list(filter(None, value))
+                value = list(filter(None, value)) # strip out empty rows
                 if key.startswith('#'):
                     value = '#ng#'.join(value)
                 else:
                     value = '|'.join(value)
+            if not bool(value): # remove empty strings and lists
+                value = None
             sheet_row.append(value)
-
         return sheet_row
 
 
@@ -198,13 +201,19 @@ class template_handler(dict):
         super().__init__()
         self.fieldnames = {}
 
-    def add_template(self, template_name, template):
-        with open(template, encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            self[template_name] = []
-            self.fieldnames[template_name] = reader.fieldnames
+    def add_template(self, template_name):
+        template_name = template_name.lower()
+        for template in TEMPLATE_DIR.iterdir():
+            if template_name.lower() in str(template).lower():
+                with template.open(encoding='utf-8') as f:
+                    print('adding template', template_name)
+                    reader = csv.DictReader(f)
+                    self[template_name] = []
+                    self.fieldnames[template_name] = reader.fieldnames
+                break
 
     def add_row(self, template_name, row):
+        template_name = template_name.lower()
         fieldnames = self.fieldnames[template_name]
         ordered_row = order_values(row, fieldnames)
         if ordered_row not in self[template_name]:
@@ -220,7 +229,7 @@ class template_handler(dict):
 
     def serialise(self, out_dir, rowlimit=3000, sort_by=None, batch_id=None):
         if batch_id is None:
-            batch_id = uuid.uuid4()
+            batch_id = uuid4()
         for template, rows in self.items():
             print(f"{template}: {len(rows)}")
             for c, chunk in enumerate(self.chunk_rows(rows, rowlimit, sort_by), 1):
