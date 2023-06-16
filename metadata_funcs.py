@@ -241,7 +241,11 @@ class template_handler(dict):
                 sheet = wb.active
                 sheet.append(self.fieldnames[template])
                 for row in chunk:
-                    sheet.append(row.normalise(asset_dir))
+                    try:
+                        sheet.append(row.normalise(asset_dir))
+                    except ValueError as e:
+                        print(row)
+                        print(e)
                 fpath = Path(out_dir, f'{batch_name}.xlsx')
                 wb.save(fpath)
 

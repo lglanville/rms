@@ -115,7 +115,7 @@ class record(dict):
         xpath = f".//atom[@name='{fieldname}']"
         x = self.xml.find(xpath)
         if x is not None:
-            yield x.text
+            return x.text
 
     def print_xml(self):
         return etree.tostring(self.to_xml(), pretty_print=True).decode()

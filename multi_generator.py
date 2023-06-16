@@ -33,7 +33,7 @@ def replace_jpegs(input_xml, out_dir, to_jpeg=False, min_size=MIN_SIZE):
                 else:
                     start = len(multi)
                 for tif in tifs[start:]:
-                    jpeg = multimedia_funcs.create_jpeg(tif, out_dir, dim=f'[min_size}x{min_size}^')
+                    jpeg = multimedia_funcs.create_jpeg(tif, out_dir, dim=f'{min_size}x{min_size}^')
                     row['MulMultiMediaRef_tab(+).Multimedia'] = jpeg
                     row['MulMultiMediaRef_tab(+).DetSource'] = ident
                     row['MulMultiMediaRef_tab(+).MulTitle'] = r['EADUnitTitle']
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         'input', metavar='i', help='EMu catalogue xml')
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
-    parser.add_argument(--to_jpeg, '-j', action="store_true", help='if a pdf asset, create new jpegs for all assets found')
+    parser.add_argument('--to_jpeg', '-j', action="store_true", help='if a pdf asset, create new jpegs for all assets found')
     parser.add_argument(
         '--minimum', '-m', type=int, default=MIN_SIZE, help='minimum dimension')
     

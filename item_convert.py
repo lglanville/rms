@@ -9,17 +9,18 @@ from emu_xml_parser import record
 import openpyxl
 
 def guess_copyright(text):
-    status = None
-    statuses = {
-        "Public domain": "out of copyright",
-        "University copyright": "copyright owned by university of melbourne",
-        "In copyright (publication rights granted)": "research purposes only",
-        "In copyright": "can only be viewed at",
-        "Orphan work": "all reasonable efforts"
-        }
-    for status, words in statuses.items():
-        if words in text.lower():
-            return status
+    if text is not None:
+        status = None
+        statuses = {
+            "Public domain": "out of copyright",
+            "University copyright": "copyright owned by university of melbourne",
+            "In copyright (publication rights granted)": "research purposes only",
+            "In copyright": "can only be viewed at",
+            "Orphan work": "all reasonable efforts"
+            }
+        for status, words in statuses.items():
+            if words in text.lower():
+                return status
 
 
 
@@ -58,13 +59,22 @@ def identify_template(row):
 
 def get_sets(record):
     record_sets = {}
-    for x, y in zip(t.findall(".//atom[@name='EADLevelAttribute']"), t.findall(".//atom[@name='EADUnitTitle']")):
+    for x in t.findall(".//tuple[@name='AssParentObjectRef']"):
         if x is not None:
+            level = x.find("atom[@name='EADLevelAttribute']")
+            name = x.find("atom[@name='EADUnitTitle']")
+            ident = x.find("atom[@name='EADUnitID']")
+            n = f"[{ident}] {name}"
             if x.text.lower() == 'series':
-                record_sets['Series'] = y.text
+                record_sets['Series'] = n
             elif x.text.lower() == 'acquisition':
-                record_sets['Accession'] = y.text
-            elif x.text.lower() == 'acquisition':
+                record_sets['Accession'] = n
+            elif x.text.lower() == 'consolidation':
+                if t.find(".//atom[@name='LotLotNumber']") == ident:
+                    record_sets['Accession'] = n
+                else:
+                    record_sets['Accrued to Accession'] = n
+
     return record_sets
 
 def get_series(record):
@@ -190,8 +200,7 @@ def convert_item(record, out_dir):
     subjects = []
     subjects.extend(metadata_funcs.flatten_table(record, 'EADPersonalName_tab'))
     subjects.extend(metadata_funcs.flatten_table(record, 'EADCorporateName_tab'))
-    row['Subject (Agents)'] = subjects
-    row['Subject (Organisation)'] = metadata_funcs.flatten_table(record, 'EADCorporateName_tab')
+    row['Subject (Agent)'] = subjects
     row['Subject (Place)'] = metadata_funcs.flatten_table(record, 'EADGeographicName_tab')
     row['Subject (Work)'] = metadata_funcs.flatten_table(record, 'EADTitle_tab')
     row['###Dates'] = metadata_funcs.format_date(record.get('EADUnitDate'), record.get('EADUnitDateEarliest'), record.get('EADUnitDateLatest'))+'|'
