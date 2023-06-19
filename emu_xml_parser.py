@@ -127,7 +127,7 @@ class record(dict):
             table_elem.append(rec.to_xml())
         tree = etree.ElementTree(table_elem)
         tree.write(
-            out_file, pretty_print=True, standalone=True, xml_declaration=True,
+            str(out_file), pretty_print=True, standalone=True, xml_declaration=True,
             encoding='UTF-8')
 
     @classmethod

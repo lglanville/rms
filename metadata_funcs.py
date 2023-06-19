@@ -4,12 +4,28 @@ from pathlib import Path
 import shutil
 import re
 from uuid import uuid4
+import unicodedata
 import multimedia_funcs
 import openpyxl
 from pypdf import PdfWriter, PdfReader
 
 TEMPLATE_DIR = Path(__file__).parent / "Templates"
 
+def slugify(value, allow_unicode=False):
+    """
+    Taken from https://github.com/django/django/blob/master/django/utils/text.py
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize('NFKC', value)
+    else:
+        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^\w\s-]', '', value.lower())
+    return re.sub(r'[-\s]+', '-', value).strip('-_')
 
 def order_values(row, fieldnames):
     """Order a dictionary to the exact format and column order required by ReCollect.
@@ -174,27 +190,26 @@ class Row(dict):
         return sheet_row
 
 
-class audit_log():
+class audit_log(dict):
     def __init__(self, csv_file):
-        self.log = {}
-        with open(csv_file, encoding='utf-8') as f:
+        with open(csv_file, encoding='utf_16_le') as f:
             reader = csv.DictReader(f)
             self.fieldnames = reader.fieldnames
             for row in reader:
-                if log.get(r['irn']) is None:
-                    self.log[r['irn']] = [row]
+                if self.get(row['AudKey']) is None:
+                    self[row['AudKey']] = [row]
                 else:
-                    self.log[r['irn']].append([row])
+                    self[row['AudKey']].append(row)
 
     def get_record_log(self, irn, outdir):
         outfile = Path(outdir, irn + '.csv')
         rows = self.get(irn)
         if rows is not None:
-            with open(outfile, enocding='utf-8', newline='') as f:
+            with open(outfile, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=self.fieldnames)
                 writer.writeheader()
-                writer.writerows(rows)
-            return outfile.name
+                writer.writerows(rows)                
+            return outfile
 
 class template_handler(dict):
     def __init__(self):

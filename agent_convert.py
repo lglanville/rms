@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import metadata_funcs
 from emu_xml_parser import record
+from tempfile import TemporaryDirectory
 import openpyxl
 
 
@@ -76,12 +77,18 @@ def main(agent_xml, out_dir, log_file=None):
     templates = metadata_funcs.template_handler()
     template_name = 'People-and-Organisations'
     templates.add_template(template_name)
-    for r in record.parse_xml(agent_xml):
-        row = convert_agent(r, out_dir)
-        if log_file is not None:
-            row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        templates.add_row(template_name, row)
-    templates.serialise(out_dir)
+    with TemporaryDirectory(dir=out_dir) as t:
+        for r in record.parse_xml(agent_xml):
+            row = convert_agent(r, out_dir)
+            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            record.serialise_to_xml('eparties', [r], xml_path)
+            row['ATTACHMENTS'] = [xml_path]
+            if log_file is not None:
+                log = audit_log.get_record_log(r['irn'], t)
+                if log is not None:
+                    row['ATTACHMENTS'].append(log)
+            templates.add_row(template_name, row)
+        templates.serialise(out_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -96,4 +103,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.output)
+    main(args.input, args.output, log_file=args.audit)

@@ -2,6 +2,7 @@ import argparse
 import re
 from pathlib import Path
 from pprint import pprint
+from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
@@ -139,6 +140,9 @@ def convert_recordset(record):
         row['Publication Status'] = 'Not for publication'
     row['###Condition'] = metadata_funcs.concat_fields(record.get('ConDateChecked'), record.get('ConConditionStatus'), record.get('ConConditionDetails'))
     row['Handling Instructions'] = record.get('ConHandlingInstructions')
+    accrued_to = record.get('AssRelatedObjectsRef_tab') 
+    if accrued_to is not None:
+        row['Accrued to Accession'] = f"[{accrued_to[0].get('EADUnitID')}] {accrued_to[0].get('EADUnitTitle')}"
     row.update(get_finding_aid(record))
     row.update(previous_ids(record))
     return row
@@ -186,19 +190,25 @@ def main(emu_xml, out_dir, log_file=None):
     templates = metadata_funcs.template_handler()
     templates.add_template('Accession')
     templates.add_template('Series')
-    for r in record.parse_xml(emu_xml):
-        row = convert_recordset(r)
-        if log_file is not None:
-            row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        if r['EADLevelAttribute'].lower() in ('acquisition', 'consolidation'):
-            row = convert_accession(r, row)
-            templates.add_row('accession', row)
-        else:
-            templates.add_row('series', row)
-            acc = create_accession(r)
-            if acc is not None:
-                templates.add_row('Accession', acc)
-    templates.serialise(out_dir)
+    with TemporaryDirectory(dir=out_dir) as t:
+        for r in record.parse_xml(emu_xml):
+            row = convert_recordset(r)
+            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            record.serialise_to_xml('ecatalogue', [r], xml_path)
+            row['ATTACHMENTS'] = [xml_path]
+            if log_file is not None:
+                log = audit_log.get_record_log(r['irn'], t)
+                if log is not None:
+                    row['ATTACHMENTS'].append(log)
+            if r['EADLevelAttribute'].lower() in ('acquisition', 'consolidation'):
+                row = convert_accession(r, row)
+                templates.add_row('accession', row)
+            else:
+                templates.add_row('series', row)
+                acc = create_accession(r)
+                if acc is not None:
+                    templates.add_row('Accession', acc)
+        templates.serialise(out_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -213,4 +223,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.output)
+    main(args.input, args.output, log_file=args.audit)
