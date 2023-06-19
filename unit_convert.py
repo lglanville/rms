@@ -4,6 +4,7 @@ import re
 import shutil
 from pathlib import Path
 import re
+from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
@@ -49,12 +50,18 @@ def main(holder_xml, out_dir, log_file=None):
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
     templates.add_template('unit')
-    for r in record.parse_xml(holder_xml):
-        row = convert_holder(r, out_dir)
-        if log_file is not None:
-            row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        templates.add_row('unit', row)
-    templates.serialise(out_dir, sort_by='NODE_TITLE', rowlimit=10000)
+    with TemporaryDirectory(dir=out_dir) as t:
+        for r in record.parse_xml(holder_xml):
+            row = convert_holder(r, out_dir)
+            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            record.serialise_to_xml('eparties', [r], xml_path)
+            row['ATTACHMENTS'] = [xml_path]
+            if log_file is not None:
+                log = audit_log.get_record_log(r['irn'], t)
+                if log is not None:
+                    row['ATTACHMENTS'].append(log)
+            templates.add_row('unit', row)
+        templates.serialise(out_dir, sort_by='NODE_TITLE', rowlimit=10000)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -69,4 +76,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.output)
+    main(args.input, args.output, log_file=args.audit)

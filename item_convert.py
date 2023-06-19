@@ -4,6 +4,7 @@ import re
 import shutil
 from pathlib import Path
 import re
+from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
@@ -226,19 +227,25 @@ def convert_item(record, out_dir):
     return row
 
 
-def main(item_xml, out_dir, template, log_file=None, batch_id=None):
+def main(item_xml, out_dir, log_file=None, batch_id=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
-    for r in record.parse_xml(item_xml):
-        row = convert_item(r, out_dir)
-        if log_file is not None:
-            row['ATTACHMENTS'] = audit_log.get_record_log(r['irn'])
-        template_name = identify_template(row).lower()
-        if templates.get(template_name) is None:
-            templates.add_template(template_name)
-        templates.add_row(template_name, row)
-    templates.serialise(out_dir, sort_by='Identifier', batch_id=batch_id)
+    with TemporaryDirectory(dir=out_dir) as t:
+        for r in record.parse_xml(item_xml):
+            row = convert_item(r, out_dir)
+            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            record.serialise_to_xml('ecatalogue', [r], xml_path)
+            row['ATTACHMENTS'] = [xml_path]
+            if log_file is not None:
+                log = audit_log.get_record_log(r['irn'], t)
+                if log is not None:
+                    row['ATTACHMENTS'].append(log)
+            template_name = identify_template(row).lower()
+            if templates.get(template_name) is None:
+                templates.add_template(template_name)
+            templates.add_row(template_name, row)
+        templates.serialise(out_dir, sort_by='Identifier', batch_id=batch_id)
 
 
 if __name__ == '__main__':
@@ -248,16 +255,14 @@ if __name__ == '__main__':
         'input', metavar='i', help='EMu catalogue xml')
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
-    parser.add_argument(
-        '--template', '-t',
-        help='ReCollect csv template')
+
     parser.add_argument(
         '--audit', '-a',
         help='audit log export')
     parser.add_argument(
         '--batch_id', '-b',
-        help='audit log export')
+        help='name for batch (if not supplied, will use a uuid)')
 
 
     args = parser.parse_args()
-    main(args.input, args.output, args.template, batch_id=args.batch_id)
+    main(args.input, args.output, log_file=args.audit, batch_id=args.batch_id)
