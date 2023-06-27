@@ -49,7 +49,7 @@ def find_access(access_conditions):
         'restricted': 'Access restrictions apply',
         'part restricted': 'Access restrictions apply for some items',
         'part-restricted': 'Access restrictions apply for some items'}
-    access_pattern = re.compile(r"(access:? )?(open|closed|restricted|part restricted|part-restricted)", flags=re.IGNORECASE)
+    access_pattern = re.compile(r"(access:? {1,3})?(open|closed|restricted|part restricted|part-restricted)", flags=re.IGNORECASE)
     access_status = "Access not determined"
     if access_conditions is not None:
         access_match = access_pattern.search(access_conditions)
@@ -148,8 +148,9 @@ class Row(dict):
             assets = []
             for fpath in self[key]:
                 target = Path(asset_dir, fpath.name)
-                if not target.exists():
-                    shutil.copy2(fpath, target)
+                if target.exists():
+                    target = Path(asset_dir, str(uuid4()) + '-' + fpath.name)
+                shutil.copy2(fpath, target)
                 assets.append(target.relative_to(asset_dir.parent).as_posix())
             self[key] = '|'.join(assets)
 

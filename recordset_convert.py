@@ -5,9 +5,11 @@ from pprint import pprint
 from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
-import openpyxl
+
 
 def extract_linear_meterage(extent):
+    """linear meterage has previously been stored as
+    free text in m or cm in EADExtent_tab. This function separates it out"""
     e = []
     lm = 0
     p = re.compile(r'\(?(\d{1,3}(\.\d{2})?) ?(m|cm)\)?', flags=re.IGNORECASE)
@@ -25,6 +27,8 @@ def extract_linear_meterage(extent):
     return e, lm
 
 def extract_sources(arch_history):
+    """Sources of information have previously been stored as
+    free text in m or cm in EADCustodialHistory. This function separates them out"""
     sources = []
     p = re.compile('sources: (.+)', flags=re.IGNORECASE)
     if arch_history is not None:
@@ -54,6 +58,8 @@ def get_finding_aid(record):
                 fpath = Path(m.get('Multimedia'))
                 if m['AdmPublishWebNoPassword'].lower() == 'no':
                     asset_dict['ATTACHMENTS'].append(fpath)
+                elif m['SecRecordStatus'] == 'From EMu data':
+                    asset_dict['ATTACHMENTS'].append(fpath)
                 elif fpath.suffix == '.html':
                     url = extract_redirect(fpath)
                     asset_dict['Other Finding Aids'] = url
@@ -77,7 +83,7 @@ def accession_data(record):
     acc_data['Legacy Data'] = record.get('AdmOriginalData')
     acc_lot = record.get('AccAccessionLotRef')
     if record.get('TitOwnersNameRef_tab') is not None:
-        acc_data['Ownership'] = [x.get('NamFullName') for x in record.get('TitOwnersNameRef_tab')]
+        acc_data['Ownership'] = [x.get('NamCitedName') for x in record.get('TitOwnersNameRef_tab')]
     if acc_lot is not None:
         acc_data['EMu Accession Lot IRN'] = acc_lot.get('irn')
         acc_data['Method of Acquisition'] = acc_lot.get('AcqAcquisitionMethod')
@@ -90,7 +96,7 @@ def accession_data(record):
         acc_data['Transferror'] = []
         if sources is not None:
             for source in sources:
-                acc_data['Transferror'].append(source.get('NamFullName'))
+                acc_data['Transferror'].append(source.get('NamCitedName'))
         agreements = acc_lot.get('MulMultiMediaRef_tab')
         acc_data['Deposit Agreement'] = []
         if agreements is not None:
@@ -102,11 +108,11 @@ def accession_data(record):
 def provenance(record):
     prov = record.get('EADOriginationRef_tab')
     if prov is not None:
-        prov = filter(None, [x['NamFullName'] for x in prov])
+        prov = filter(None, [x['NamCitedName'] for x in prov])
     else:
         prov = record["AssParentObjectRef"].get("EADOriginationRef_tab")
         if prov is not None:
-            prov = filter(None, [x['NamFullName'] for x in prov])
+            prov = filter(None, [x['NamCitedName'] for x in prov])
     if prov is not None:
         return "#ng#".join(prov)
 
@@ -155,18 +161,19 @@ def convert_accession(record, row):
 
 def create_accession(record):
     acc_lot = record.get('AccAccessionLotRef')
-    if acc_lot is not None:
+    if acc_lot.get('irn') is not None:
         row = {}
         acc_num = str(acc_lot.get('LotLotNumber'))
-        print(acc_num)
-        row['NODE_TITLE'] = acc_lot.get('SummaryData')
         row['Publication Status'] = 'Not for publication'
         row = accession_data(record)
         if acc_num in record['EADUnitID']:
             row['Identifier'] = 'UMA-ACE-' + record.get('EADUnitID').replace('.', '')
-            row['NODE_TITLE'] = record.get('EADUnitTitle')
+            row['NODE_TITLE'] = f"[{record.get('EADUnitID')}] {record.get('EADUnitTitle')}"
         else:
-            row['NODE_TITLE'] = acc_lot.get('SummaryData')
+            try:
+                row['NODE_TITLE'] = 'Accession lot ' + acc_lot.get('irn')
+            except TypeError as e:
+                print('Series', record.get('EADUnitID'), 'has no accession lot')
         return row
 
 def is_accession(record):
@@ -175,7 +182,7 @@ def is_accession(record):
         return True
     elif level == 'Series':
         acc_lot = record.get('AccAccessionLotRef')
-        if acc_lot is not None:
+        if acc_lot.get('irn') is not None:
             if record['EADUnitID'] in str(acc_lot['LotLotNumber']):
                 return True
             else:

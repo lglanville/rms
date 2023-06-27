@@ -90,10 +90,9 @@ def get_accession(record):
     """Identify the item's accession (if it has one)"""
     accession_name = ""
     accrued_to = ""
-    lot_number = ""
     acc_lot = record.get('AccAccessionLotRef')
-    if acc_lot is not None:
-        lot_number = acc_lot.get('LotLotNumber')
+    lot_number = acc_lot.get('LotLotNumber')
+    lot_irn = acc_lot.get('irn')
     while record.get("AssParentObjectRef") is not None:
         record = record.get("AssParentObjectRef")
         if record.get("EADLevelAttribute") is not None and record['EADLevelAttribute'].lower() == 'acquisition':
@@ -102,8 +101,10 @@ def get_accession(record):
             if record.get("EADUnitID") in lot_number:
                 accession_name = f"{record['EADUnitID']} {record['EADUnitTitle']}"
             else:
-                accession_name = lot_number
                 accrued_to = f"{record['EADUnitID']} {record['EADUnitTitle']}"
+    if not bool(accession_name):
+        if lot_irn is not None:
+            accession_name = "Accesion lot " + lot_irn
     return accession_name, accrued_to
 
 def get_item(record):
@@ -120,19 +121,23 @@ def previous_ids(record):
     format_number = re.compile(r'((BWP|CP|OSB|BWN|CN|GPN|NN|SL|PA)[A-D]?/?\d{1,5})', flags=re.IGNORECASE)
     UMAIC_number = re.compile(r"UMA/I/\d{1,5}", flags=re.IGNORECASE)
     faid_number = re.compile('\d{1,2}(/\d{1,2})*', flags=re.IGNORECASE)
-    ids = record.get('EADPreviousID_tab')
-    if ids is not None:
-        for id in ids:
-            id = id['EADPreviousID']
-            if format_number.match(id):
-                id_dict['Format Number'] = id
-            elif UMAIC_number.match(id):
-                id_dict['UMAIC ID'] = id
-            elif faid_number.match(id):
-                id_dict['Finding Aid Reference'] = id
-            else:
-                id_dict['Other IDs'] = id
+    for id in record.findall('EADPreviousID'):
+        if format_number.match(id):
+            id_dict['Format Number'] = id
+        elif UMAIC_number.match(id):
+            id_dict['UMAIC ID'] = id
+        elif faid_number.match(id):
+            id_dict['Finding Aid Reference'] = id
+        elif id.startswith('YFA'):
+            id_dict['Classification'] = id
+        else:
+            id_dict['Other IDs'] = id
     return id_dict
+
+def job_no(record):
+    r = re.compile('yfa job no.? \d{1,3}')
+    return r.findall(record['EADScopeAndContent'])
+
 
 def facet(record):
     """disambiguate the EADPhysicalDescription_tab field to specific physical facets where possible"""
@@ -171,11 +176,15 @@ def contributors(record):
                 else:
                     role = ''
             if role in creator_roles:
-                prov.append(str(c['NamFullName']) + '|' + role)
+                prov.append(str(c['NamCitedName']) + '|' + role)
             else:
-                contrib.append(str(c['NamFullName']) + '|' + role)
+                contrib.append(str(c['NamCitedName']) + '|' + role)
 
     return {"###Provenance": "#ng#".join(prov), "###Contributor": "#ng#".join(contrib)}
+
+def creation_place(record):
+    p = [record.find('CreCreationPlace4'),record.find('CreCreationPlace3'), record.find('CreCreationPlace2'), record.find('CreCreationPlace1')]
+    return ', '.join(filter(None, p))
 
 def convert_item(record, out_dir):
     """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
@@ -201,8 +210,13 @@ def convert_item(record, out_dir):
     subjects = []
     subjects.extend(metadata_funcs.flatten_table(record, 'EADPersonalName_tab'))
     subjects.extend(metadata_funcs.flatten_table(record, 'EADCorporateName_tab'))
-    row['Subject (Agent)'] = subjects
-    row['Subject (Place)'] = metadata_funcs.flatten_table(record, 'EADGeographicName_tab')
+    row['Subject (Agent)'] = []
+    row['Subject (Agent)'].extend(metadata_funcs.flatten_table(record, 'EADPersonalName_tab'))
+    row['Subject (Agent)'].extend(metadata_funcs.flatten_table(record, 'EADCorporateName_tab'))
+    row['Subject (Place)'] = list(record.findall('EADGeographicName'))
+    cp = creation_place(record)
+    if cp is not None:
+        row['Subject (Place)'].append(cp)
     row['Subject (Work)'] = metadata_funcs.flatten_table(record, 'EADTitle_tab')
     row['###Dates'] = metadata_funcs.format_date(record.get('EADUnitDate'), record.get('EADUnitDateEarliest'), record.get('EADUnitDateLatest'))+'|'
     row['EMu IRN'] = record.get('irn')

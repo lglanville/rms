@@ -19,7 +19,7 @@ def format_strdate(birth, death):
 
 def convert_agent(record, out_dir):
     row = {}
-    row['NODE_TITLE'] = record.get('NamFullName')
+    row['NODE_TITLE'] = record.get('NamCitedName')
     row['Internal Notes'] = record.get('NotNotes')
     row['EMu IRN'] = record.get('irn')
     row['Legacy Data'] = record.get('AdmOriginalData')
@@ -88,7 +88,7 @@ def main(agent_xml, out_dir, log_file=None):
                 if log is not None:
                     row['ATTACHMENTS'].append(log)
             templates.add_row(template_name, row)
-        templates.serialise(out_dir)
+        templates.serialise(out_dir, sort_by="NODE_TITLE")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

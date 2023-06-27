@@ -34,6 +34,8 @@ class record(dict):
             text = text.replace(chr(19), '')
             text = text.replace(chr(24), '')
             text = text.replace(chr(25), '')
+            text = text.replace(chr(28), '')
+            text = text.replace(chr(29), '')
             text = text.replace('\u2014', '-')
             text = text.replace('\u2013', '-')
             text = text.replace('encoding="UTF-8"', '')
