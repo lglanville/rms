@@ -236,7 +236,20 @@ class template_handler(dict):
             self[template_name].append(ordered_row)
         else:
             print(ordered_row['NODE_TITLE'], 'is already in template', template_name)
-    
+
+    def pop_rows(self, template_name, params):
+        """pops any rows matching params"""
+        matches = []
+        for row in self[template_name]:
+            match = True
+            for k, v in params.items():
+                if row.get(k) != v:
+                    match = False
+            if match:
+                matches.append(row)
+                self[template_name].remove(row)
+        return matches
+
     def chunk_rows(self, rows, rowlimit, sort_by):
         if sort_by is not None:
             rows = sorted(rows, key=lambda row: row[sort_by])

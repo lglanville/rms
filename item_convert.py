@@ -98,7 +98,7 @@ def get_accession(record):
         if record.get("EADLevelAttribute") is not None and record['EADLevelAttribute'].lower() == 'acquisition':
             accession_name = f"{record['EADUnitID']} {record['EADUnitTitle']}"
         elif record.get("EADLevelAttribute") is not None and record['EADLevelAttribute'].lower() == 'consolidation':
-            if record.get("EADUnitID") in lot_number:
+            if record.get("EADUnitID") == lot_number:
                 accession_name = f"{record['EADUnitID']} {record['EADUnitTitle']}"
             else:
                 accrued_to = f"{record['EADUnitID']} {record['EADUnitTitle']}"

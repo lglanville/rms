@@ -20,7 +20,7 @@ def extract_linear_meterage(extent):
             if m.group(3).lower() == 'cm':
                 n = n / 100
             lm += n
-            x = x.replace(m.group(0), '').strip()
+            x = x.replace(m.group(0), '').strip(' .(')
         e.append(x)
     if lm == 0:
         lm = None
@@ -159,46 +159,50 @@ def convert_accession(record, row):
     row.update(accession_data(record))
     return row
 
-def create_accession(record):
-    acc_lot = record.get('AccAccessionLotRef')
-    if acc_lot.get('irn') is not None:
-        row = {}
-        acc_num = str(acc_lot.get('LotLotNumber'))
-        row['Publication Status'] = 'Not for publication'
-        row = accession_data(record)
-        if acc_num in record['EADUnitID']:
-            row['Identifier'] = 'UMA-ACE-' + record.get('EADUnitID').replace('.', '')
-            row['NODE_TITLE'] = f"[{record.get('EADUnitID')}] {record.get('EADUnitTitle')}"
-        else:
-            try:
-                row['NODE_TITLE'] = 'Accession lot ' + acc_lot.get('irn')
-            except TypeError as e:
-                print('Series', record.get('EADUnitID'), 'has no accession lot')
-        return row
-
-def is_accession(record):
-    level = record.get('EADLevelAttribute')
-    if level in ('Acquisition', 'Consolidation'):
-        return True
-    elif level == 'Series':
-        acc_lot = record.get('AccAccessionLotRef')
-        if acc_lot.get('irn') is not None:
-            if record['EADUnitID'] in str(acc_lot['LotLotNumber']):
-                return True
-            else:
-                return False
+def create_accession(acc_lot):
+    row = {}
+    acc_num = str(acc_lot.get('LotLotNumber'))
+    row['Publication Status'] = 'Not for publication'
+    series = []
+    cat_recs = acc_lot.get('AccAccessionLotRef')
+    if bool(cat_recs): 
+        for x in cat_recs:
+            if x.get('EADLevelAttribute').lower() == 'series':
+                series.append(f"[{x.get('EADUnitID')}] {x.get('EADUnitTitle')}")
+    if len(series) == 1:
+        row['NODE_TITLE'] = series[0]
     else:
-        return False
+        row['NODE_TITLE'] = 'Accession lot ' + acc_lot.get('irn')
+    update_accession(row, acc_lot)
+    return row
+
+def update_accession(row, accession_data):
+    row['Method of Acquisition'] = accession_data.get('AcqAcquisitionMethod')
+    row['Authorised by'] = accession_data.get('AcqAuthorisedBy')
+    row['Lot Description'] = accession_data.get('LotDescription')
+    row['EMu Accession Lot IRN'] = accession_data.get('irn')
+    row['Acquisition Notes'] = '\n'.join(filter(None, (accession_data.get('AcqAcquisitionRemarks'), accession_data.get('NotNotes'))))
+    row['Date Received'] = metadata_funcs.format_date(accession_data.get('AcqDateReceived'), accession_data.get('AcqDateReceivedLower'), accession_data.get('AcqDateReceivedUpper'))
+    sources = accession_data.get('source')
+    row['Transferror'] = []
+    if sources is not None:
+        for source in sources:
+            row['Transferror'].append(source.get('NamCitedName'))
+    agreements = accession_data.get('MulMultiMediaRef_tab')
+    row['Deposit Agreement'] = []
+    if agreements is not None:
+        for agreement in agreements:
+            row['Deposit Agreement'].append(agreement.get('MulTitle'))
 
 
-def main(emu_xml, out_dir, log_file=None):
+def main(catalogue_xml, accession_xml, out_dir, log_file=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
     templates.add_template('Accession')
     templates.add_template('Series')
     with TemporaryDirectory(dir=out_dir) as t:
-        for r in record.parse_xml(emu_xml):
+        for r in record.parse_xml(catalogue_xml):
             row = convert_recordset(r)
             xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
             record.serialise_to_xml('ecatalogue', [r], xml_path)
@@ -212,16 +216,25 @@ def main(emu_xml, out_dir, log_file=None):
                 templates.add_row('accession', row)
             else:
                 templates.add_row('series', row)
-                acc = create_accession(r)
-                if acc is not None:
-                    templates.add_row('Accession', acc)
+        for r in record.parse_xml(accession_xml):
+            rows = templates.pop_rows('accession', {'EMu Accession Lot IRN': r['irn']})
+            if bool(rows):
+                for row in rows:
+                    update_accession(row, r)
+                    templates.add_row('accession', row)
+            else:
+                row = create_accession(r)
+          
+                templates.add_row('accession', row)
         templates.serialise(out_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Convert EMu items into ReCollect data')
     parser.add_argument(
-        'input', metavar='i', help='EMu catalogue xml')
+        'catalogue_xml', metavar='i', help='EMu catalogue xml')
+    parser.add_argument(
+        'accesion_xml', metavar='i', help='EMu accession lot xml')
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
     parser.add_argument(
@@ -230,4 +243,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.output, log_file=args.audit)
+    main(args.catalogue_xml, args.accesion_xml, args.output, log_file=args.audit)
