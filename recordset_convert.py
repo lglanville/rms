@@ -105,6 +105,22 @@ def accession_data(record):
     return acc_data
 
 
+def find_accession(record):
+    accession = None
+    acc_lot = record.get('AccAccessionLotRef')
+    if acc_lot.get('irn') is not None:
+        lot_number = acc_lot.get('LotLotNumber')
+        if lot_number is None or lot_number == record['EADUnitID']:
+            accession = 'Accession lot ' + acc_lot.get('irn')
+        else:
+            accession = lot_number
+    else:
+        parent = record.get('AssParentObjectRef')
+        if parent.get('EADUnitID') is not None:
+            accession = f"[{parent.get('EADUnitID')}] {parent.get('EADUnitTitle')}"
+    return accession
+
+
 def provenance(record):
     prov = record.get('EADOriginationRef_tab')
     if prov is not None:
@@ -123,6 +139,7 @@ def convert_recordset(record):
     row['Alternative Title'] = full_title
     if record.get('EADLevelAttribute').lower() == 'series':
         row['Identifier'] = 'UMA-SRE-' + record.get('EADUnitID').replace('.', '')
+        row['Accession'] = find_accession(record)
     row['Scope and Content'] = record.get('EADScopeAndContent')
     row['Access Status'], row['Access Conditions'] = metadata_funcs.get_access(record)
     row['Appraisal'] = record.get('EADAppraisalInformation')
@@ -206,7 +223,7 @@ def main(catalogue_xml, accession_xml, out_dir, log_file=None):
             row = convert_recordset(r)
             xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
             record.serialise_to_xml('ecatalogue', [r], xml_path)
-            row['ATTACHMENTS'] = [xml_path]
+            row['ATTACHMENTS'].append(xml_path)
             if log_file is not None:
                 log = audit_log.get_record_log(r['irn'], t)
                 if log is not None:
@@ -224,7 +241,9 @@ def main(catalogue_xml, accession_xml, out_dir, log_file=None):
                     templates.add_row('accession', row)
             else:
                 row = create_accession(r)
-          
+                xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+                record.serialise_to_xml('ecatalogue', [r], xml_path)
+                row['ATTACHMENTS'] = [xml_path]
                 templates.add_row('accession', row)
         templates.serialise(out_dir)
 
