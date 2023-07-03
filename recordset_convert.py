@@ -138,7 +138,8 @@ def convert_recordset(record):
     row['NODE_TITLE'] = f"[{record.get('EADUnitID')}] {title}"
     row['Alternative Title'] = full_title
     if record.get('EADLevelAttribute').lower() == 'series':
-        row['Identifier'] = 'UMA-SRE-' + record.get('EADUnitID').replace('.', '')
+        if len(record.get('EADUnitID')) == 9:
+            row['Identifier'] = 'UMA-SRE-' + record.get('EADUnitID').replace('.', '')
         row['Accession'] = find_accession(record)
     row['Scope and Content'] = record.get('EADScopeAndContent')
     row['Access Status'], row['Access Conditions'] = metadata_funcs.get_access(record)
@@ -152,7 +153,7 @@ def convert_recordset(record):
     row['Internal Notes'] = record.get('NotNotes')
     row['Subject'] = metadata_funcs.flatten_table(record, 'EADSubject_tab')
     row['Subject (Place)'] = list(record.findall('EADGeographicName'))
-    row['###Dates'] = metadata_funcs.format_date(record.get('EADUnitDate'), record.get('EADUnitDateEarliest'), record.get('EADUnitDateLatest'))+'|'
+    row['###Dates'] = metadata_funcs.format_date(record.get('EADUnitDate'), record.get('EADUnitDateEarliest'), record.get('EADUnitDateLatest'))
     row['EMu Catalogue IRN'] = record.get('irn')
     row['Descriptive Note'] = record.get('EADOtherFindingAid')
     row['Previous System ID'] = record.get('EADUnitID')
@@ -200,10 +201,11 @@ def update_accession(row, accession_data):
     row['EMu Accession Lot IRN'] = accession_data.get('irn')
     row['Acquisition Notes'] = '\n'.join(filter(None, (accession_data.get('AcqAcquisitionRemarks'), accession_data.get('NotNotes'))))
     row['Date Received'] = metadata_funcs.format_date(accession_data.get('AcqDateReceived'), accession_data.get('AcqDateReceivedLower'), accession_data.get('AcqDateReceivedUpper'))
-    sources = accession_data.get('source')
+    sources = accession_data.get('AcqSource')
     row['Transferror'] = []
     if sources is not None:
         for source in sources:
+            role = source.get('AcqSourceRole')
             row['Transferror'].append(source.get('NamCitedName'))
     agreements = accession_data.get('MulMultiMediaRef_tab')
     row['Deposit Agreement'] = []
