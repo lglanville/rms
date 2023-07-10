@@ -40,8 +40,8 @@ class record(dict):
             text = text.replace('\u2013', '-')
             text = text.replace('encoding="UTF-8"', '')
         tree = etree.fromstring(text)
-        for record in tree.iterfind('tuple'):
-            yield cls.parse_tuple(record)
+        for elem in tree.iterfind('tuple'):
+            yield cls.parse_tuple(elem)
 
     def merge_field(self, **kwargs):
         """merge a given field based on kwargs - table fields are appended as
@@ -70,19 +70,19 @@ class record(dict):
         for key, value in self.items():
             if type(value) == str:
                 etree.SubElement(root_element, 'atom', name=key).text = value
-            if type(value) == record:
-                tup_element = value.to_xml()
-                tup_element.attrib['name'] = key
-                root_element.append(tup_element)
             elif type(value) == list:
                 tab_element = etree.SubElement(root_element, 'table', name=key)
                 for val in value:
-                    if type(val) != record:
+                    if hasattr(val, 'to_xml'):
+                        tab_element.append(val.to_xml())
+                    else:
                         tup_element = etree.SubElement(tab_element, 'tuple')
                         field, _ = key.split('_')
                         etree.SubElement(tup_element, 'atom', name=field).text = val
-                    else:
-                        tab_element.append(val.to_xml())
+            elif hasattr(value, 'to_xml'):
+                tup_element = value.to_xml()
+                tup_element.attrib['name'] = key
+                root_element.append(tup_element)
         return root_element
 
     def flatten(self, parent_key='', sep='.'):
@@ -108,12 +108,14 @@ class record(dict):
         return row
     
     def findall(self, fieldname):
+        "return all text values for a given fielldname, including in nested records"
         xpath = f".//atom[@name='{fieldname}']"
         for x in self.xml.findall(xpath):
             if x.text is not None:
                 yield x.text
     
     def find(self, fieldname):
+        "return the first value for a given fieldname, including in nested records"
         xpath = f".//atom[@name='{fieldname}']"
         x = self.xml.find(xpath)
         if x is not None:

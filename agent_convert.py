@@ -17,58 +17,59 @@ def format_strdate(birth, death):
             birth += death
     return birth
 
-def convert_agent(record, out_dir):
-    row = {}
-    row['NODE_TITLE'] = record.get('NamCitedName')
-    row['Internal Notes'] = record.get('NotNotes')
-    row['EMu IRN'] = record.get('irn')
-    row['Legacy Data'] = record.get('AdmOriginalData')
-    row['Agent Type'] = record.get('NamPartyType')
-    if record.get('AdmPublishWebNoPassword').lower() == 'yes':
-        row['Publication Status'] = 'Public'
-    else:
-        row['Publication Status'] = 'Not for publication'
-    dates = metadata_funcs.format_date(format_strdate(record.get('BioBirthDate'), record.get('BioDeathDate')), record.get('BioBirthEarliestDate'), record.get('BioDeathLatestDate'))
-    row['###Dates'] = dates
-    row['History'] = '\n'.join(filter(None, (record.get('BioCommencementNotes'), record.get('HisBeginDateNotes'), record.get('HisEndDateNotes'))))
-    row['Title'] = record.get('NamTitle')
-    row['Given Name'] = record.get('NamFirst')
-    row['Middle Name'] = record.get('NamMiddle')
-    row['Family Name'] = record.get('NamLast')
-    row['Suffix'] = record.get('NamSuffix')
-    row['Other Names'] = []
-    row['Other Names'].extend(metadata_funcs.flatten_table(record, 'NamOtherNames_tab'))
-    row['Other Names'].extend(metadata_funcs.flatten_table(record, 'NamOrganisationOtherNames_tab'))
-    row['Acronym'] = record.get('NamOrganisationAcronym')
-    row['Place of Birth'] = record.get('BioBirthPlace')
-    row['Place of Death'] = record.get('BioDeathPlace')
-    row['Activities & Occupations'] = metadata_funcs.flatten_table(record, 'NamSpecialities_tab')
-    row['Telephone (Business)'] = metadata_funcs.flatten_table(record, 'NamBusiness_tab')
-    row['Telephone (Mobile)'] = record.get('AddWeb')
-    row['Telephone (Home)'] = record.get('NamHome')
-    row['Gender'] = record.get('NamSex')
-    row['Website'] = record.get('AddWeb')
-    row['Email'] = record.get('AddEmail')
+class agent(record):
+    def convert_to_row(self, out_dir):
+        row = {}
+        row['NODE_TITLE'] = self.get('NamCitedName')
+        row['Internal Notes'] = self.get('NotNotes')
+        row['EMu IRN'] = self.get('irn')
+        row['Legacy Data'] = self.get('AdmOriginalData')
+        row['Agent Type'] = self.get('NamPartyType')
+        if self.get('AdmPublishWebNoPassword').lower() == 'yes':
+            row['Publication Status'] = 'Public'
+        else:
+            row['Publication Status'] = 'Not for publication'
+        dates = metadata_funcs.format_date(format_strdate(self.get('BioBirthDate'), self.get('BioDeathDate')), self.get('BioBirthEarliestDate'), self.get('BioDeathLatestDate'))
+        row['###Dates'] = dates
+        row['History'] = '\n'.join(filter(None, (self.get('BioCommencementNotes'), self.get('HisBeginDateNotes'), self.get('HisEndDateNotes'))))
+        row['Title'] = self.get('NamTitle')
+        row['Given Name'] = self.get('NamFirst')
+        row['Middle Name'] = self.get('NamMiddle')
+        row['Family Name'] = self.get('NamLast')
+        row['Suffix'] = self.get('NamSuffix')
+        row['Other Names'] = []
+        row['Other Names'].extend(metadata_funcs.flatten_table(self, 'NamOtherNames_tab'))
+        row['Other Names'].extend(metadata_funcs.flatten_table(self, 'NamOrganisationOtherNames_tab'))
+        row['Acronym'] = self.get('NamOrganisationAcronym')
+        row['Place of Birth'] = self.get('BioBirthPlace')
+        row['Place of Death'] = self.get('BioDeathPlace')
+        row['Activities & Occupations'] = metadata_funcs.flatten_table(self, 'NamSpecialities_tab')
+        row['Telephone (Business)'] = metadata_funcs.flatten_table(self, 'NamBusiness_tab')
+        row['Telephone (Mobile)'] = self.get('NamMobile')
+        row['Telephone (Home)'] = self.get('NamHome')
+        row['Gender'] = self.get('NamSex')
+        row['Website'] = self.get('AddWeb')
+        row['Email'] = self.get('AddEmail')
     
-    home_address = metadata_funcs.concat_fields(
-        record.get('AddPhysStreet'),
-        record.get('AddPhysCity'),
-        record.get('AddPhysState'),
-        record.get('AddPhysPost'),
-        record.get('AddPhysCountry'))
-    post_address = metadata_funcs.concat_fields(
-        record.get('AddPostStreet'), 
-        record.get('AddPostCity'), 
-        record.get('AddPostState'), 
-        record.get('AddPostPost'), 
-        record.get('AddPostCountry'))
-    addr = []
-    if home_address is not None:
-        addr.append('Physical|' + home_address)
-    if post_address is not None:
-        addr.append('Postal|' + post_address)
-    row['###Address'] = '#ng#'.join(addr)
-    return row
+        home_address = metadata_funcs.concat_fields(
+            self.get('AddPhysStreet'),
+            self.get('AddPhysCity'),
+            self.get('AddPhysState'),
+            self.get('AddPhysPost'),
+            self.get('AddPhysCountry'))
+        post_address = metadata_funcs.concat_fields(
+            self.get('AddPostStreet'), 
+            self.get('AddPostCity'), 
+            self.get('AddPostState'), 
+            self.get('AddPostPost'), 
+            self.get('AddPostCountry'))
+        addr = []
+        if home_address is not None:
+            addr.append('Physical|' + home_address)
+        if post_address is not None:
+            addr.append('Postal|' + post_address)
+        row['###Address'] = '#ng#'.join(addr)
+        return row
 
 
 def main(agent_xml, out_dir, log_file=None):
@@ -78,8 +79,8 @@ def main(agent_xml, out_dir, log_file=None):
     template_name = 'People-and-Organisations'
     templates.add_template(template_name)
     with TemporaryDirectory(dir=out_dir) as t:
-        for r in record.parse_xml(agent_xml):
-            row = convert_agent(r, out_dir)
+        for r in agent.parse_xml(agent_xml):
+            row = r.convert_to_row(out_dir)
             xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
             record.serialise_to_xml('eparties', [r], xml_path)
             row['ATTACHMENTS'] = [xml_path]

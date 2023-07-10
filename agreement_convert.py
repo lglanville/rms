@@ -14,7 +14,7 @@ def convert_agreement(record):
     row['NODE_TITLE'] = title
     row['Notes'] = record.get('MulDescription')
     row['Type'] = record.get('DetResourceType')
-    row['Donor'] = list(set(record.findall('NamFullName')))
+    row['Donor'] = list(set(record.findall('NamCitedName')))
     row['EMu IRN'] = record.get('irn')
     fpath = Path(record.get('Multimedia'))
     row['ASSETS'] = [fpath]

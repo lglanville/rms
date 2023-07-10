@@ -15,7 +15,7 @@ def guess_copyright(text):
         statuses = {
             "Public domain": "out of copyright",
             "University copyright": "copyright owned by university of melbourne",
-            "In copyright (publication rights granted)": "research purposes only",
+            "In copyright - publication rights granted": "research purposes only",
             "In copyright": "can only be viewed at",
             "Orphan work": "all reasonable efforts"
             }

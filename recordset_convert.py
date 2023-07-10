@@ -130,7 +130,7 @@ def provenance(record):
         if prov is not None:
             prov = filter(None, [x['NamCitedName'] for x in prov])
     if prov is not None:
-        return "#ng#".join(prov)
+        return list(prov)
 
 def convert_recordset(record):
     row = {}
@@ -196,7 +196,7 @@ def create_accession(acc_lot):
 
 def update_accession(row, accession_data):
     row['Method of Acquisition'] = accession_data.get('AcqAcquisitionMethod')
-    row['Authorised by'] = accession_data.get('AcqAuthorisedBy')
+    row['Authorised by'] = accession_data['AcqAuthorisedByRef']['NamCitedName']
     row['Lot Description'] = accession_data.get('LotDescription')
     row['EMu Accession Lot IRN'] = accession_data.get('irn')
     row['Acquisition Notes'] = '\n'.join(filter(None, (accession_data.get('AcqAcquisitionRemarks'), accession_data.get('NotNotes'))))
@@ -204,9 +204,16 @@ def update_accession(row, accession_data):
     sources = accession_data.get('AcqSource')
     row['Transferror'] = []
     if sources is not None:
+        if row.get('###Provenance') is None:
+                row['###Provenance'] = []
         for source in sources:
             role = source.get('AcqSourceRole')
-            row['Transferror'].append(source.get('NamCitedName'))
+            name = source.get('NamCitedName')
+            if str(role).lower() == 'creator':
+                if name not in row['###Provenance']:
+                    row['###Provenance'].append(name)
+            else:
+                row['Transferror'].append(name)
     agreements = accession_data.get('MulMultiMediaRef_tab')
     row['Deposit Agreement'] = []
     if agreements is not None:

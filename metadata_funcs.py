@@ -3,6 +3,7 @@ from pprint import pprint
 from pathlib import Path
 import shutil
 import re
+import calendar
 from uuid import uuid4
 import unicodedata
 import multimedia_funcs
@@ -91,18 +92,31 @@ def flatten_table(record, key):
     return list(filter(None, terms))
 
 def format_date(date_str, earliest, latest):
-    """Format dates to strcuture required by ReCollect"""
-    if date_str is None:
-        date_str = ''
-    if earliest is None:
-        earliest = ''
-    if latest is None:
-        latest = ''
-    if len(earliest) == 4:
-        earliest = '01/01/' + earliest
-    if len(latest) == 4:
-        latest = '31/12/' + latest
-    return date_str + ';' + earliest + ";" + latest
+    """Format dates to structure required by ReCollect"""
+    to_str = lambda x: '' if x is None else x
+    if any(filter(None, [date_str, earliest, latest])):
+         return ';'.join([to_str(date_str), format_filter_date(earliest), format_filter_date(latest, latest=True)])
+
+def format_filter_date(d, latest=False):
+    if d is not None:
+        d = d.strip('-').split('-')
+        d.reverse()
+        if len(d) == 1:
+            if latest:
+                return '31/12/' + d[0]
+            else:
+                return '01/01/' + d[0]
+        elif len(d) == 2:
+            if latest:
+                days = calendar.monthrange(int(d[1]), int(d[0]))[1]
+                return '/'.join([str(days)] + d)
+            else:
+                return '/'.join(['01'] + d)
+        else:
+            return '/'.join(d)
+    else:
+        return ''
+
 
 def concat_fields(*fields, sep='|'):
     if any(fields):

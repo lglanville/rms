@@ -7,51 +7,72 @@ import multimedia_funcs
 MIN_SIZE = 2048
 
 
-def replace_jpegs(input_xml, out_dir, to_jpeg=False, min_size=MIN_SIZE):
-    for r in record.parse_xml(input_xml):
-        ident = r['EADUnitID']
-        row = dict(EADUnitID=r['EADUnitID'])
-        folder = multimedia_funcs.find_asset_folder(ident)
-        tifs = list(multimedia_funcs.find_assets(folder))
-        pdf = list(multimedia_funcs.find_assets(folder, exts=('.pdf')))
-        multi = r.get("MulMultiMediaRef_tab")
+class multi_replacer(record):
+
+    def find_assets(self):
+        if self.get('EADUnitID') is not None:
+            self.asset_folder = multimedia_funcs.find_asset_folder(self['EADUnitID'])
+            self.tifs = list(multimedia_funcs.find_assets(self.asset_folder))
+            self.pdf = list(multimedia_funcs.find_assets(self.asset_folder, exts=('.pdf')))
+        else:
+            raise ValueError('Record has no EADUnitID')
+    
+    def to_jpeg(self, out_dir, min_size=MIN_SIZE):
+        self.find_assets()
+        for tif in self.tifs:
+            row = {}
+            for k, v in self.items():
+                if type(v) == str:
+                    row[k] = v
+            jpeg = multimedia_funcs.create_jpeg(tif, out_dir, dim=f'{min_size}x{min_size}^')
+            row['MulMultiMediaRef_tab(+).Multimedia'] = jpeg
+            row['MulMultiMediaRef_tab(+).DetSource'] = self['EADUnitID']
+            row['MulMultiMediaRef_tab(+).MulTitle'] = self['EADUnitTitle']
+            yield row
+    
+
+    def find_new_jpegs(self, out_dir, min_size=MIN_SIZE):
+        self.find_assets()
+        multi = self.get("MulMultiMediaRef_tab")
         if multi is None:
             multi = []
             format = None
         else:
             format = multi[0].get('MulMimeFormat')
-        if len(tifs) > len(multi) and format != 'pdf':
+        if len(self.tifs) > len(multi) and format != 'pdf':
             print("Found additional assets for", ident)
-            if pdf != []:
+            row = {}
+            if self.pdf != []:
                 row['MulMultiMediaRef_tab(+).Multimedia'] = pdf[0]
                 row['MulMultiMediaRef_tab(+).DetSource'] = ident
                 row['MulMultiMediaRef_tab(+).MulTitle'] = r['EADUnitTitle']
                 yield row
             else:
-                if to_jpeg:
-                    start = 0
-                else:
-                    start = len(multi)
-                for tif in tifs[start:]:
+                for tif in tifs[len(multi):]:
                     jpeg = multimedia_funcs.create_jpeg(tif, out_dir, dim=f'{min_size}x{min_size}^')
                     row['MulMultiMediaRef_tab(+).Multimedia'] = jpeg
-                    row['MulMultiMediaRef_tab(+).DetSource'] = ident
+                    row['MulMultiMediaRef_tab(+).DetSource'] = self['EADUnitID']
                     row['MulMultiMediaRef_tab(+).MulTitle'] = r['EADUnitTitle']
                     yield row
 
 
 def main(input_xml, out_dir, to_jpeg=False, min_size=MIN_SIZE):
+    fieldnames = set()
+    rows = []
+    for x in multi_replacer.parse_xml(input_xml):
+            if to_jpeg:
+                for row in x.to_jpeg(out_dir, min_size=min_size):
+                    fieldnames.update(row.keys())
+                    rows.append(row)
+            else:
+                for row in x.find_new_jpegs(out_dir, min_size=min_size):
+                    fieldnames.update(row.keys())
+                    rows.append(row)
     csv_file = Path(out_dir, "jpeg_replacements.csv")
     with csv_file.open('w', encoding='utf-8-sig', newline='') as f:
-        fieldnames = [
-            'EADUnitID', 'AdmPublishWebNoPassword', 'SecDepartment_tab(2)', 
-            'MulMultiMediaRef_tab(+).Multimedia', 'MulMultiMediaRef_tab(+).DetSource', 
-            'MulMultiMediaRef_tab(+).MulTitle',
-            'MulMultiMediaRef_tab(+).AdmPublishWebNoPassword']
-        multi_writer = csv.DictWriter(f, fieldnames=fieldnames)
+        multi_writer = csv.DictWriter(f, fieldnames=list(fieldnames))
         multi_writer.writeheader()
-        for row in replace_jpegs(input_xml, out_dir, to_jpeg=to_jpeg, min_size=min_size):
-            multi_writer.writerow(row)
+        multi_writer.writerows(rows)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
