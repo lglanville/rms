@@ -93,7 +93,7 @@ def flatten_table(record, key):
 
 def format_date(date_str, earliest, latest):
     """Format dates to structure required by ReCollect"""
-    to_str = lambda x: '' if x is None else x
+    to_str = lambda x: '' if x is None else x.replace(';', ',')
     if any(filter(None, [date_str, earliest, latest])):
          return ';'.join([to_str(date_str), format_filter_date(earliest), format_filter_date(latest, latest=True)])
 

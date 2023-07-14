@@ -121,6 +121,20 @@ class record(dict):
         if x is not None:
             return x.text
 
+    def find_in_tuple(self, tuple_name, fieldnames):
+        "return the first value for a given fieldname, including in nested records"
+        xpath = f".//tuple[@name='{tuple_name}']"
+        for x in self.xml.findall(xpath):
+            data = {}
+            for f in fieldnames:
+                xpath = f"atom[@name='{f}']"
+                e = x.find(xpath)
+                if e is not None:
+                    data[f] = e.text
+                else:
+                    data[f] = None
+            yield data
+
     def print_xml(self):
         return etree.tostring(self.to_xml(), pretty_print=True).decode()
 

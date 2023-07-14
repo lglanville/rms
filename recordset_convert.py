@@ -175,6 +175,13 @@ def convert_recordset(record):
 def convert_accession(record, row):
     row['Identifier'] = 'UMA-ACE-' + record.get('EADUnitID').replace('.', '')
     row.update(accession_data(record))
+    dates = metadata_funcs.format_date(record.get('TitAccessionDate'), None, None)
+    transf = record.get('TitTransferFromRef_tab')
+    if transf is not None:
+        for x in record.get('TitTransferFromRef_tab'):
+            name = record.get('NamCitedName')
+            if name not in row['Transferror']:
+                row['Transferror'].append(name)
     return row
 
 def create_accession(acc_lot):
@@ -230,7 +237,7 @@ def main(catalogue_xml, accession_xml, out_dir, log_file=None):
     with TemporaryDirectory(dir=out_dir) as t:
         for r in record.parse_xml(catalogue_xml):
             row = convert_recordset(r)
-            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            xml_path = Path(t, metadata_funcs.slugify(r['EADUnitID']) + '.xml')
             record.serialise_to_xml('ecatalogue', [r], xml_path)
             row['ATTACHMENTS'].append(xml_path)
             if log_file is not None:

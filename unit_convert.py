@@ -2,6 +2,7 @@ import argparse
 import csv
 import re
 import shutil
+from pprint import pprint
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -9,40 +10,59 @@ import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 
+class unit(record):
 
-def convert_name(name):
-    n = re.compile(r'Unit (\d{1,4})', flags=re.IGNORECASE)
-    m = n.search(name)
-    if m is not None:
-        number= int(m[1])
-        return name.replace(m[0], '') + 'Unit ' + '0'*(4-len(str(number)))+str(number)
-    else:
-        return name
+    def convert_name(self):
+        name = self.get('LocHolderName')
+        repl = lambda x: x.group(1) +" " + "0"*(4-len(x.group(2)))+x.group(2)
+        return re.sub(r'(unit|album) (\d+)', repl, name, flags=re.IGNORECASE)
 
+    def get_location(self):
+        loc_name = self['LocHolderLocationRef'].get('LocLocationCode')
+        if loc_name is not None:
+            repl = lambda x: "0"*(2-len(x.group(0)))+x.group(0)
+            return re.sub('\d+', repl, loc_name, flags=re.IGNORECASE)
 
-def convert_holder(record, out_dir):
-    row = {}
-    row['NODE_TITLE'] = convert_name(record.get('LocHolderName'))
-    row['Unit Type'] = record.get('LocStorageType')
-    row['EMu IRN'] = record.get('irn')
-    row['Internal Notes'] = record.get('NotNotes')
-    row['Home Location'] = record['LocHolderLocationRef'].get('LocLocationCode')
-    items = record.get('LocCurrentLocationRef')
-    if items is not None:
-        units = [i for i in items if str(i.get('EADLevelAttribute')).lower() == 'unit']
-        if len(units) > 1:
-            print('warning: multiple unit records for', record.get('LocHolderName'))
-        elif len(units) == 1:
-            unit = units[0]
-            row['Description'] = metadata_funcs.concat_fields(unit.get('EADUnitTitle'), unit.get('EADScopeAndContent'), sep='\n')
-            if unit.get('EADUnitDate') is not None:
-                row['Date Range'] = metadata_funcs.format_date(unit.get('EADUnitDate'), unit.get('EADUnitDateEarliest'), unit.get('EADUnitDateLatest'))
-            parent = unit.get('AssParentObjectRef')
-            if parent.get('EADLevelAttribute') == 'Series':
-                row['Series'] = parent.get('EADUnitTitle')
-            else:
-                row['Accession'] = parent.get('EADUnitTitle')
-    return row
+    def publish_online(self):
+        status = "Not for publication"
+        p = list(set([x.lower() for x in self.findall('AdmPublishWebNoPassword')]))
+        if len(p) == 1:
+            if p[0] == 'yes':
+                status = 'Public'
+        return status
+
+    def to_xml_file(self, out_dir):
+        xml_path = Path(out_dir, metadata_funcs.slugify(self.convert_name()) + '.xml')
+        self.serialise_to_xml('elocations', [self], xml_path)
+        return xml_path
+
+    def convert_to_row(self, out_dir):
+        row = {}
+        row['NODE_TITLE'] = self.convert_name()
+        row['Unit Type'] = self.get('LocStorageType')
+        row['EMu IRN'] = self.get('irn')
+        row['Internal Notes'] = self.get('NotNotes')
+        row['Home Location'] = self.get_location()
+        items = self.get('LocCurrentLocationRef')
+        row['Publication Status'] = self.publish_online()
+        if 'LocCurrentLocationRef' in self.keys():
+            t = lambda x: x['EADLevelAttribute'].lower() == 'unit'
+            self['LocCurrentLocationRef'] = list(filter(t, self['LocCurrentLocationRef']))
+            if len(self['LocCurrentLocationRef']) > 1:
+                print('warning: multiple unit records for', self.get('LocHolderName'))
+                pprint(self['LocCurrentLocationRef'])
+            elif len(self['LocCurrentLocationRef']) == 1:
+                unit = self['LocCurrentLocationRef'][0]
+                row['Description'] = metadata_funcs.concat_fields(unit.get('EADUnitTitle'), unit.get('EADScopeAndContent'), sep='\n')
+                if unit.get('EADUnitDate') is not None:
+                    row['Date Range'] = metadata_funcs.format_date(unit.get('EADUnitDate'), unit.get('EADUnitDateEarliest'), unit.get('EADUnitDateLatest'))
+                parent = unit.get('AssParentObjectRef')
+                parent_name = f"[{parent.get('EADUnitID')}] {parent.get('EADUnitTitle')}"
+                if parent.get('EADLevelAttribute') == 'Series':
+                    row['Series'] = parent_name
+                else:
+                    row['Accession'] = parent_name
+        return row
 
 
 def main(holder_xml, out_dir, log_file=None):
@@ -51,17 +71,15 @@ def main(holder_xml, out_dir, log_file=None):
     templates = metadata_funcs.template_handler()
     templates.add_template('unit')
     with TemporaryDirectory(dir=out_dir) as t:
-        for r in record.parse_xml(holder_xml):
-            row = convert_holder(r, out_dir)
-            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
-            record.serialise_to_xml('eparties', [r], xml_path)
-            row['ATTACHMENTS'] = [xml_path]
+        for u in unit.parse_xml(holder_xml):
+            row = u.convert_to_row(out_dir)
+            row['ATTACHMENTS'] = [u.to_xml_file(t)]
             if log_file is not None:
-                log = audit_log.get_record_log(r['irn'], t)
+                log = audit_log.get_record_log(u['irn'], t)
                 if log is not None:
                     row['ATTACHMENTS'].append(log)
             templates.add_row('unit', row)
-        templates.serialise(out_dir, sort_by='NODE_TITLE', rowlimit=10000)
+        templates.serialise(out_dir, sort_by='NODE_TITLE', rowlimit=3000)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
