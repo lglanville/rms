@@ -138,10 +138,10 @@ class item(record):
                     role = 'Photographer'
                 else:
                     role = ''
-            if role.lower() in creator_roles:
-                prov.append((str(c['NamCitedName']), role))
+            if role.lower().strip('s') in creator_roles:
+                prov.append((str(x['NamCitedName']), role))
             else:
-                contrib.append((str(c['NamCitedName']), role))
+                contrib.append((str(x['NamCitedName']), role))
         for x in self.find_in_table('EADOriginationRef_tab', ['NamCitedName']):
             
             if x['NamCitedName'] is not None and x['NamCitedName'] not in [i[0] for i in prov]:
