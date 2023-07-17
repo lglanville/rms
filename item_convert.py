@@ -148,7 +148,7 @@ class item(record):
         return {"###Provenance": "#ng#".join(prov), "###Contributor": "#ng#".join(contrib)}
 
     def creation_place(self):
-        p = [record.find('CreCreationPlace4'),record.find('CreCreationPlace3'), record.find('CreCreationPlace2'), record.find('CreCreationPlace1')]
+        p = [self.find('CreCreationPlace4'),self.find('CreCreationPlace3'), self.find('CreCreationPlace2'), self.find('CreCreationPlace1')]
         return ', '.join(filter(None, p))
 
     def convert_to_row(self, out_dir):
