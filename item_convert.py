@@ -188,7 +188,7 @@ class item(record):
         if self['AdmPublishWebNoPassword'].lower() == 'yes':
             row['Publication Status'] = 'Public'
         else:
-            if self['Access Status'] == 'Closed for public access':
+            if row['Access Status'] == 'Closed for public access':
                 row['Publication Status'] = 'Not for publication'
             else:
                 row['Publication Status'] = 'Review'
