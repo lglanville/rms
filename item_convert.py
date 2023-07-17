@@ -129,23 +129,24 @@ class item(record):
         """determine whether a contributor is actually a record creator"""
         prov = []
         contrib = []
-        contributors = self.get('contributors')
-        if contributors is not None:
-            print(contributors)
-            creator_roles = ["Artist", "Architect", "Creator", "Author", "Director", "Photographer", "Producer"]
-            for c in contributors:
-                role = c.get('AssRelatedPartiesRelationship')
-                if role is None:
-                    if 'photograph' in ''.join(metadata_funcs.flatten_table(record, 'EADGenreForm_tab')).lower():
-                        role = 'Photographer'
-                    else:
-                        role = ''
-                if role in creator_roles:
-                    prov.append(str(c['NamCitedName']) + '|' + role)
+        creator_roles = ["artist", "architect", "creator", "author", "director", "photographer", "producer"]
+        
+        for x in self.find_in_tuple('contributors', ['AssRelatedPartiesRelationship', 'NamCitedName']):
+            role = x.get('AssRelatedPartiesRelationship')
+            if role is None:
+                if 'photograph' in '|'.join(self.findall('EADGenreForm')).lower():
+                    role = 'Photographer'
                 else:
-                    contrib.append(str(c['NamCitedName']) + '|' + role)
+                    role = ''
+            if role.lower() in creator_roles:
+                prov.append((str(c['NamCitedName']), role))
+            else:
+                contrib.append((str(c['NamCitedName']), role))
+        for x in self.find_in_tuple('EADOriginationRef_tab', ['NamCitedName']):
+            if x['NamCitedName'] not in [i[0] for i in prov]:
+                prov.append((x['NamCitedName'], 'Provenance))
 
-        return {"###Provenance": "#ng#".join(prov), "###Contributor": "#ng#".join(contrib)}
+        return {"###Provenance": "#ng#".join(['|'.join(x) for x in prov]), "###Contributor": "#ng#".join(['|'.join(x) for x in contrib])}
 
     def creation_place(self):
         p = [self.find('CreCreationPlace4'),self.find('CreCreationPlace3'), self.find('CreCreationPlace2'), self.find('CreCreationPlace1')]
