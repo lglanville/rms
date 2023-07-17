@@ -54,7 +54,7 @@ class item(record):
 
     def get_series(self):
         """Identify the item's series (if it has one)"""
-        for x in self.find_in_tuple("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
+        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
             if x['EADLevelAttribute'] is not None and x['EADLevelAttribute'].lower() == 'series':
                 return f"[{x['EADUnitID']} {x['EADUnitTitle']}]"
 
@@ -65,7 +65,7 @@ class item(record):
         acc_lot = self.get('AccAccessionLotRef')
         lot_number = acc_lot.get('LotLotNumber')
         lot_irn = acc_lot.get('irn')
-        for x in self.find_in_tuple("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
+        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
             if x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'acquisition':
                 accession_name = f"{x['EADUnitID']} {x['EADUnitTitle']}"
             elif x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'consolidation':
@@ -81,7 +81,7 @@ class item(record):
     def get_item(self):
         """Identify the item a sub-item belongs to"""
         item = ""
-        for x in self.find_in_tuple("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
+        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
             if x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'item':
                 return x['EADUnitTitle']
 
@@ -131,7 +131,7 @@ class item(record):
         contrib = []
         creator_roles = ["artist", "architect", "creator", "author", "director", "photographer", "producer"]
         
-        for x in self.find_in_tuple('contributors', ['AssRelatedPartiesRelationship', 'NamCitedName']):
+        for x in self.find_in_table('contributors', ['AssRelatedPartiesRelationship', 'NamCitedName']):
             role = x.get('AssRelatedPartiesRelationship')
             if role is None:
                 if 'photograph' in '|'.join(self.findall('EADGenreForm')).lower():
@@ -142,7 +142,7 @@ class item(record):
                 prov.append((str(c['NamCitedName']), role))
             else:
                 contrib.append((str(c['NamCitedName']), role))
-        for x in self.find_in_tuple('EADOriginationRef_tab', ['NamCitedName']):
+        for x in self.find_in_table('EADOriginationRef_tab', ['NamCitedName']):
             if x['NamCitedName'] not in [i[0] for i in prov]:
                 prov.append((x['NamCitedName'], 'Provenance'))
 
