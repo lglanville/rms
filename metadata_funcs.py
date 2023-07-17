@@ -125,7 +125,7 @@ def concat_fields(*fields, sep='|'):
             return sep.join(fields)
 
 def get_multimedia(record):
-    """Gat paths for multimedia from temp, or if a pdf from fileshare"""
+    """Get paths for multimedia from temp, or if a pdf from fileshare"""
     asset_data = {'ASSETS': [], '#REDACT': None}
     redacted = None
     multi = record.get('MulMultiMediaRef_tab')

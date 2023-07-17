@@ -168,7 +168,7 @@ class item(record):
         row['Copyright Status'] = self.guess_copyright()
         row['Conditions of Use and Reproduction'] = self.get('EADUseRestrictions')
         row['Genre/Form'] = [t.split('--')[-1] for t in self.findall('EADGenreForm')]
-        row['Subject'] = self.findall('EADSubject')
+        row['Subject'] = list(self.findall('EADSubject'))
         row['Subject (Agent)'] = []
         row['Subject (Agent)'].extend(self.findall('EADPersonalName'))
         row['Subject (Agent)'].extend(self.findall('EADCorporateName'))
