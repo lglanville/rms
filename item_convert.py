@@ -181,7 +181,7 @@ class item(record):
         row['Previous System ID'] = self.get('EADUnitID')
         row['Identifier'] = "UMA-ITE-" + self.get('EADUnitID').replace('.', '')
         row['Unit'] = self.find('LocHolderName')
-        row['Location if unenclosed'] = record.find('LocLocationCode')
+        row['Location if unenclosed'] = self.find('LocLocationCode')
         row.update(self.previous_ids())
         row.update(self.contributors())
         row.update(self.facet())
