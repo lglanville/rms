@@ -172,7 +172,7 @@ class Row(dict):
         pdfs = list(filter(lambda x: x.suffix.lower() == '.pdf', self['ASSETS']))
         if len(pdfs) > 1:
             output = PdfWriter()
-            outfile = Path(asset_dir, f"{self['Identifier']} record description list.pdf")
+            outfile = Path(asset_dir, f"{self['Identifier']} concatenated.pdf")
             for pdf in filter(lambda x: x.suffix.lower() == '.pdf', self['ASSETS']):
                 input = PdfReader(open(pdf, "rb"))
                 for i in input.pages:

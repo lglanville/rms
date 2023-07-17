@@ -123,7 +123,7 @@ class record(dict):
 
     def find_in_table(self, table_name, fieldnames):
         "return the first value for a given fieldname, including in nested records"
-        xpath = f".//table[@name='{table_name}/tuple']"
+        xpath = f".//table[@name='{table_name}']/tuple"
         for x in self.xml.findall(xpath):
             data = {}
             for f in fieldnames:

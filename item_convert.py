@@ -143,9 +143,9 @@ class item(record):
             else:
                 contrib.append((str(c['NamCitedName']), role))
         for x in self.find_in_table('EADOriginationRef_tab', ['NamCitedName']):
-            if x['NamCitedName'] not in [i[0] for i in prov]:
+            
+            if x['NamCitedName'] is not None and x['NamCitedName'] not in [i[0] for i in prov]:
                 prov.append((x['NamCitedName'], 'Provenance'))
-
         return {"###Provenance": "#ng#".join(['|'.join(x) for x in prov]), "###Contributor": "#ng#".join(['|'.join(x) for x in contrib])}
 
     def creation_place(self):
