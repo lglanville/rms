@@ -49,7 +49,7 @@ class item(record):
             elif gf.startswith('audio recordings'):
                 template = 'sound'
         if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
-            template = 'Legacy Asset'
+            template = 'Legacy-Asset'
         return template
 
     def get_series(self):
