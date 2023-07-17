@@ -144,7 +144,7 @@ class item(record):
                 contrib.append((str(c['NamCitedName']), role))
         for x in self.find_in_tuple('EADOriginationRef_tab', ['NamCitedName']):
             if x['NamCitedName'] not in [i[0] for i in prov]:
-                prov.append((x['NamCitedName'], 'Provenance))
+                prov.append((x['NamCitedName'], 'Provenance'))
 
         return {"###Provenance": "#ng#".join(['|'.join(x) for x in prov]), "###Contributor": "#ng#".join(['|'.join(x) for x in contrib])}
 
