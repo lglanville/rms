@@ -45,7 +45,7 @@ class item(record):
             if 'architectural drawings' in gf:
                 template = 'plan'
             elif gf.startswith('moving image'):
-                template = 'Moving Image'
+                template = 'Moving-Image'
             elif gf.startswith('audio recordings'):
                 template = 'sound'
         if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
