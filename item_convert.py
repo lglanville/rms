@@ -151,7 +151,7 @@ class item(record):
         p = [record.find('CreCreationPlace4'),record.find('CreCreationPlace3'), record.find('CreCreationPlace2'), record.find('CreCreationPlace1')]
         return ', '.join(filter(None, p))
 
-    def convert_item(self, out_dir):
+    def convert_to_row(self, out_dir):
         """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
         row = {}
         title, full_title = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
@@ -204,16 +204,16 @@ def main(item_xml, out_dir, log_file=None, batch_id=None):
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
     with TemporaryDirectory(dir=out_dir) as t:
-        for r in item.parse_xml(item_xml):
-            row = convert_item(r, out_dir)
+        for i in item.parse_xml(item_xml):
+            row = i.convert_to_row(out_dir)
             xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
-            record.serialise_to_xml('ecatalogue', [r], xml_path)
+            record.serialise_to_xml('ecatalogue', [i], xml_path)
             row['ATTACHMENTS'] = [xml_path]
             if log_file is not None:
                 log = audit_log.get_record_log(r['irn'], t)
                 if log is not None:
                     row['ATTACHMENTS'].append(log)
-            template_name = identify_template(row).lower()
+            template_name = i.identify_template().lower()
             if templates.get(template_name) is None:
                 templates.add_template(template_name)
             templates.add_row(template_name, row)
