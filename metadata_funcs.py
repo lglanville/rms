@@ -144,8 +144,9 @@ def get_multimedia(record):
                     folder = multimedia_funcs.find_asset_folder(id)
                     pdfs = list(multimedia_funcs.find_assets(folder, exts=('.pdf')))
                     for pdf in pdfs:
-                        print('Found fresh pdf in storage for', id)
-                        asset_data['ASSETS'].append(pdf)
+                        if pdf not in asset_data['ASSETS']:
+                            print('Found fresh pdf in storage for', id)
+                            asset_data['ASSETS'].append(pdf)
                     if pdfs == []:
                         print('No fresh pdfs found, using EMu version for', id)
                         asset_data['ASSETS'].append(fpath)

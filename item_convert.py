@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
+from cat_mapper import ReCollect_report
 
 
 class item(record):
@@ -52,38 +53,42 @@ class item(record):
             template = 'Legacy-Asset'
         return template
 
-    def get_series(self):
-        """Identify the item's series (if it has one)"""
-        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
-            if x['EADLevelAttribute'] is not None and x['EADLevelAttribute'].lower() == 'series':
-                return f"[{x['EADUnitID']} {x['EADUnitTitle']}]"
 
-    def get_accession(self):
+    def get_parent_records(self, acc_report):
         """Identify the item's accession (if it has one)"""
-        accession_name = ""
-        accrued_to = ""
-        acc_lot = self.get('AccAccessionLotRef')
-        lot_number = acc_lot.get('LotLotNumber')
-        lot_irn = acc_lot.get('irn')
-        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
-            if x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'acquisition':
-                accession_name = f"{x['EADUnitID']} {x['EADUnitTitle']}"
-            elif x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'consolidation':
-                if x.get("EADUnitID") == lot_number:
-                    accession_name = f"{x['EADUnitID']} {x['EADUnitTitle']}"
+        data = {}
+        lot_irn = None
+        for x in self.find_in_tuple('AccAccessionLotRef', ['irn']):
+            if x['irn'] is not None:
+                lot_irn = x['irn']
+                break
+        if lot_irn is not None:
+            rows = acc_report.retrieve_row("EMu Accession Lot IRN", lot_irn)
+            data['Accession'] = '|'.join([r['Node Title'] for r in rows])
+        for x in self.find_in_tuple("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
+            if x['EADLevelAttribute'] is not None:
+                level = x['EADLevelAttribute'].lower()
+                name = f"[{x['EADUnitID']}] {x['EADUnitTitle']}"
+                if level == 'series':
+                    data['Series'] = name
+                elif level == 'item':
+                    data['Part of Item'] = x['EADUnitTitle']
+                elif level == 'acquisition':
+                    data['Accession'] = name
+                elif level == 'consolidation':
+                    if data.get('Accession') is not None:
+                        if data.get('Accession') != name:
+                            data['Accrued to Accession'] = name
+                    else:
+                        data['Accession'] = name
                 else:
-                    accrued_to = f"{x['EADUnitID']} {x['EADUnitTitle']}"
-        if not bool(accession_name):
-            if lot_irn is not None:
-                accession_name = "Accesion lot " + lot_irn
-        return accession_name, accrued_to
-
-    def get_item(self):
-        """Identify the item a sub-item belongs to"""
-        item = ""
-        for x in self.find_in_table("AssParentObjectRef", ['EADUnitID', 'EADUnitTitle', 'EADLevelAttribute']):
-            if x.get("EADLevelAttribute") is not None and x['EADLevelAttribute'].lower() == 'item':
-                return x['EADUnitTitle']
+                    print("Warning: unrecognised parent", x)
+        if data.get('Accession') is None:
+            if lot_number is not None:
+                data['Accession'] = lot_number
+            elif lot_irn is not None:
+                data['Accession'] = "Accession lot " + lot_irn
+        return data
 
     def previous_ids(self):
         """disambiguate the EADPreviousID_tab field to specific sorts of identifier"""
@@ -151,16 +156,24 @@ class item(record):
     def creation_place(self):
         p = [self.find('CreCreationPlace4'),self.find('CreCreationPlace3'), self.find('CreCreationPlace2'), self.find('CreCreationPlace1')]
         return ', '.join(filter(None, p))
+    
+    def get_dates(self):
+        e = self.get('EADUnitDateEarliest')
+        d = metadata_funcs.format_date(self.get('EADUnitDate'), self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
+        if e is None:
+            for x in self.find_in_tuple('AssParentObjectRef', ['EADUnitDate', 'EADUnitDateEarliest', 'EADUnitDateLatest']):
+                d = metadata_funcs.format_date(x.get('EADUnitDate'), x.get('EADUnitDateEarliest'), x.get('EADUnitDateLatest'))
+                if d is not None:
+                    return d
 
-    def convert_to_row(self, out_dir):
+
+    def convert_to_row(self, acc_report, out_dir):
         """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
         row = {}
         title, full_title = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
         row['NODE_TITLE'] = title
         row['Full Title'] = full_title
-        row['Series'] = self.get_series()
-        row['Accession'], row['Accrued to Accession'] = self.get_accession()
-        row['Part of Item'] = self.get_item()
+        row.update(self.get_parent_records(acc_report))
         row['Scope and Content'] = self.get('EADScopeAndContent')
         row['Dimensions'] = self.get('EADDimensions')
         row['Internal Notes'] = self.get('NotNotes')
@@ -199,13 +212,14 @@ class item(record):
         return row
 
 
-def main(item_xml, out_dir, log_file=None, batch_id=None):
+def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
+    acc_report = ReCollect_report(accession_csv)
     with TemporaryDirectory(dir=out_dir) as t:
         for i in item.parse_xml(item_xml):
-            row = i.convert_to_row(out_dir)
+            row = i.convert_to_row(acc_report, out_dir)
             xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
             record.serialise_to_xml('ecatalogue', [i], xml_path)
             row['ATTACHMENTS'] = [xml_path]
@@ -226,6 +240,8 @@ if __name__ == '__main__':
     parser.add_argument(
         'input', metavar='i', help='EMu catalogue xml')
     parser.add_argument(
+        'accession_csv', metavar='i', help='recollect accession csv for mapping')
+    parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
 
     parser.add_argument(
@@ -237,4 +253,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.output, log_file=args.audit, batch_id=args.batch_id)
+    main(args.input, args.accession_csv, args.output, log_file=args.audit, batch_id=args.batch_id)
