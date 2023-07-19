@@ -193,7 +193,11 @@ class Row(dict):
         Also copies any multimedia to central folder"""
         sheet_row = []
         if self.get('ASSETS') is not None:
-            self.concat_pdfs(asset_dir)
+            try:
+                self.concat_pdfs(asset_dir)
+            except FileNotFoundError as e:
+                print(e)
+                self['ASSETS'] = []
         self.copy_assets(asset_dir, 'ASSETS')
         self.copy_assets(asset_dir, 'ATTACHMENTS')
         for key, value in self.items():
