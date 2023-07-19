@@ -165,8 +165,11 @@ class Row(dict):
                 target = Path(asset_dir, fpath.name)
                 if target.exists():
                     target = Path(asset_dir, str(uuid4()) + '-' + fpath.name)
-                shutil.copy2(fpath, target)
-                assets.append(target.relative_to(asset_dir.parent).as_posix())
+                try:
+                    shutil.copy2(fpath, target)
+                    assets.append(target.relative_to(asset_dir.parent).as_posix())
+                except Exception as e:
+                    print("source file", fpath, "doesn't exist")
             self[key] = '|'.join(assets)
 
     def concat_pdfs(self, asset_dir):
@@ -232,25 +235,30 @@ class template_handler(dict):
         super().__init__()
         self.fieldnames = {}
 
-    def add_template(self, template_name):
+    def add_template(self, template_name, ident=None):
         template_name = template_name.lower()
         for template in TEMPLATE_DIR.iterdir():
             if template_name.lower() in str(template).lower():
                 with template.open(encoding='utf-8') as f:
+                    if ident is not None:
+                        template_name = ident + '-' + template_name
                     print('adding template', template_name)
                     reader = csv.DictReader(f)
                     self[template_name] = []
                     self.fieldnames[template_name] = reader.fieldnames
                 break
 
-    def add_row(self, template_name, row):
-        template_name = template_name.lower()
-        fieldnames = self.fieldnames[template_name]
+    def add_row(self, template_name, row, ident=None):
+        if ident is not None:
+           batch_name = ident + '-' + template_name
+        if batch_name not in self.keys():
+            self.add_template(template_name, ident=ident)
+        fieldnames = self.fieldnames[batch_name]
         ordered_row = order_values(row, fieldnames)
-        if ordered_row not in self[template_name]:
-            self[template_name].append(ordered_row)
+        if ordered_row not in self[batch_name]:
+            self[batch_name].append(ordered_row)
         else:
-            print(ordered_row['NODE_TITLE'], 'is already in template', template_name)
+            print(ordered_row['NODE_TITLE'], 'is already in template', batch_name)
 
     def pop_rows(self, template_name, params):
         """pops any rows matching params"""

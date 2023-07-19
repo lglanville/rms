@@ -27,6 +27,18 @@ class item(record):
                 if words in text.lower():
                     return status
 
+    def get_unit(self):
+        unit_name = self.find('LocHolderName')
+        if unit_name is not None:
+            repl = lambda x: x.group(1) +" " + "0"*(4-len(x.group(2)))+x.group(2)
+            return re.sub(r'(unit|album) (\d+)', repl, unit_name, flags=re.IGNORECASE)
+
+    def get_location(self):
+        loc_name = self.find('LocLocationCode')
+        if loc_name is not None:
+            repl = lambda x: "0"*(2-len(x.group(0)))+x.group(0)
+            return re.sub('\d+', repl, loc_name, flags=re.IGNORECASE)
+
     def identify_template(self):
         """based on some dicey conditional logic, work out what template each item should use"""
         gf = self.findall('EADGenreForm')
@@ -84,9 +96,7 @@ class item(record):
                 else:
                     print("Warning: unrecognised parent", x)
         if data.get('Accession') is None:
-            if lot_number is not None:
-                data['Accession'] = lot_number
-            elif lot_irn is not None:
+            if lot_irn is not None:
                 data['Accession'] = "Accession lot " + lot_irn
         return data
 
@@ -159,13 +169,17 @@ class item(record):
     
     def get_dates(self):
         e = self.get('EADUnitDateEarliest')
-        d = metadata_funcs.format_date(self.get('EADUnitDate'), self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
+        date = metadata_funcs.format_date(self.get('EADUnitDate'), self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
         if e is None:
-            for x in self.find_in_tuple('AssParentObjectRef', ['EADUnitDate', 'EADUnitDateEarliest', 'EADUnitDateLatest']):
+            for x in self.find_in_tuple('AssParentObjectRef', ['EADUnitDate', 'EADUnitDateEarliest', 'EADUnitDateLatest', 'EADLevelAttribute']):
                 d = metadata_funcs.format_date(x.get('EADUnitDate'), x.get('EADUnitDateEarliest'), x.get('EADUnitDateLatest'))
                 if d is not None:
-                    return d
-
+                    level = x.get('EADLevelAttribute')
+                    if level.lower() in ('acquisition', 'consolidation'):
+                        level = 'accession'
+                    date = d + "|Date of " + level
+                    break
+        return date
 
     def convert_to_row(self, acc_report, out_dir):
         """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
@@ -190,12 +204,12 @@ class item(record):
         if cp is not None:
             row['Subject (Place)'].append(cp)
         row['Subject (Work)'] = list(self.findall('EADGeographicName'))
-        row['###Dates'] = metadata_funcs.format_date(self.get('EADUnitDate'), self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
+        row['###Dates'] = self.get_dates()
         row['EMu IRN'] = self.get('irn')
         row['Previous System ID'] = self.get('EADUnitID')
         row['Identifier'] = "UMA-ITE-" + self.get('EADUnitID').replace('.', '')
-        row['Unit'] = self.find('LocHolderName')
-        row['Location if unenclosed'] = self.find('LocLocationCode')
+        row['Unit'] = self.get_unit()
+        row['Location if unenclosed'] = self.get_location()
         row.update(self.previous_ids())
         row.update(self.contributors())
         row.update(self.facet())
@@ -228,9 +242,8 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None):
                 if log is not None:
                     row['ATTACHMENTS'].append(log)
             template_name = i.identify_template().lower()
-            if templates.get(template_name) is None:
-                templates.add_template(template_name)
-            templates.add_row(template_name, row)
+            ident = i['EADUnitID'][:9].replace('.', '-')
+            templates.add_row(template_name, row, ident=ident)
         templates.serialise(out_dir, sort_by='Identifier', batch_id=batch_id)
 
 
