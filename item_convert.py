@@ -22,16 +22,6 @@ ch.setFormatter(formatter)
 ch.setLevel(logging.INFO)
 logger.addHandler(ch)
 
-def configlogfile(logfile):
-    """Configures a rotating log file with WARNING debug level."""
-    from logging.handlers import RotatingFileHandler
-    fh = RotatingFileHandler(
-        logfile, 'a', maxBytes=1024 * 20, backupCount=5)
-    fh.setLevel(logging.INFO)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
-
 class item(record):
     def guess_copyright(self):
         text = self.get('EADUseRestrictions')
@@ -67,13 +57,10 @@ class item(record):
         assets = self.findall('Multimedia')
         if assets is not None:
             exts = {Path(x).suffix for x in assets}
-            if len(exts) > 1:
-                raise TypeError('Multiple asset extensions for record', record)
-            elif len(exts) == 1:
-                if '.jpg' in exts:
-                    template = 'Image'
-                elif '.pdf' in exts:
-                    template = 'Item'
+            if '.jpg' in exts:
+                template = 'Image'
+            elif '.pdf' in exts:
+                template = 'Item'
         if gf is not None:
             gf = '|'.join(gf).lower()
             if 'architectural drawings' in gf:
@@ -84,6 +71,8 @@ class item(record):
                 template = 'sound'
         if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
             template = 'Legacy-Asset'
+        if self.get('EADLevelAttribute').lower() == 'multiple items':
+            template = 'multiple-items'
         return template
 
 
@@ -254,8 +243,7 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None, logging
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler(batch_id=batch_id)
     acc_report = ReCollect_report(accession_csv)
-    if logging:
-        configlogfile(Path(out_dir, templates.batch_id + '.log'))
+    metadata_funcs.configlogfile(Path(out_dir, templates.batch_id + '.log'), logger)
     with TemporaryDirectory(dir=out_dir) as t:
         for i in item.parse_xml(item_xml):
             row = i.convert_to_row(acc_report, out_dir)

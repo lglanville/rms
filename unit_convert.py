@@ -5,10 +5,23 @@ import shutil
 from pprint import pprint
 from pathlib import Path
 import re
+import logging
 from tempfile import TemporaryDirectory
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
+
+logging.basicConfig(
+    format=f'%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+logger.propagate = False
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
+
 
 class unit(record):
 
@@ -69,6 +82,7 @@ def main(holder_xml, out_dir, log_file=None):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
     templates = metadata_funcs.template_handler()
+    metadata_funcs.configlogfile(Path(out_dir, templates.batch_id + '.log'), logger)
     templates.add_template('unit')
     with TemporaryDirectory(dir=out_dir) as t:
         for u in unit.parse_xml(holder_xml):

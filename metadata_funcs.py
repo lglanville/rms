@@ -15,6 +15,16 @@ TEMPLATE_DIR = Path(__file__).parent / "Templates"
 
 logger = logging.getLogger('__main__')
 
+def configlogfile(logfile, logger):
+    """Configures a rotating log file with WARNING debug level."""
+    from logging.handlers import RotatingFileHandler
+    formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s')
+    fh = RotatingFileHandler(
+        logfile, 'a', maxBytes=1024 * 1000, backupCount=5)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
 def slugify(value, allow_unicode=False):
     """
@@ -133,7 +143,7 @@ def is_redacted(record):
     if multi is not None:
         redact = set([x['AdmPublishWebNoPassword'].lower() for x in multi])
         if len(redact) == 2: 
-            logger.warning('Multiple publishing permissions for record ' + id)
+            logger.warning('Multiple publishing permissions for record ' + record['EADUnitID'])
         if 'no' in redact:
             return True
 
@@ -153,8 +163,9 @@ def get_multimedia(record):
     multi = record.get('MulMultiMediaRef_tab')
     id = record.get('EADUnitID')
     if multi is not None:
-        assets = [Path(m.get('Multimedia')) for m in multi]
-        exts = [x.suffix.lower() for x in assets]
+        assets = [m.get('Multimedia') for m in multi]
+        assets = [Path(p) for p in filter(None, assets)]
+        exts = set([x.suffix.lower() for x in assets])
         if len(exts) > 2:
             logger.warning('Multiple extensions found for ' + id + ':' + ', '.join(exts))
         if '.pdf' in exts:
