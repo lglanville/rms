@@ -5,10 +5,31 @@ import shutil
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
+import logging
 import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 from cat_mapper import ReCollect_report
+
+logging.basicConfig(
+    format=f'%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+logger.propagate = False
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
+
+def configlogfile(logfile):
+    """Configures a rotating log file with WARNING debug level."""
+    from logging.handlers import RotatingFileHandler
+    fh = RotatingFileHandler(
+        logfile, 'a', maxBytes=1024 * 20, backupCount=5)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
 
 class item(record):
@@ -67,6 +88,7 @@ class item(record):
 
 
     def get_parent_records(self, acc_report):
+
         """Identify the item's accession (if it has one)"""
         data = {}
         lot_irn = None
@@ -94,7 +116,7 @@ class item(record):
                     else:
                         data['Accession'] = name
                 else:
-                    print("Warning: unrecognised parent", x)
+                    logger.warning("Unrecognised parent", x)
         if data.get('Accession') is None:
             if lot_irn is not None:
                 data['Accession'] = "Accession lot " + lot_irn
@@ -222,15 +244,18 @@ class item(record):
                 row['Publication Status'] = 'Review'
         row['###Condition'] = metadata_funcs.concat_fields(self.get('ConDateChecked'), self.get('ConConditionStatus'), self.get('ConConditionDetails'))
         row['Handling Instructions'] = self.get('ConHandlingInstructions')
-        row.update(metadata_funcs.get_multimedia(self))
+        row['ASSETS'] = metadata_funcs.get_multimedia(self)
+        row['#REDACT'] = metadata_funcs.is_redacted(self)
         return row
 
 
-def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None):
+def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None, logging=False):
     if log_file is not None:
         audit_log = metadata_funcs.audit_log(log_file)
-    templates = metadata_funcs.template_handler()
+    templates = metadata_funcs.template_handler(batch_id=batch_id)
     acc_report = ReCollect_report(accession_csv)
+    if logging:
+        configlogfile(Path(out_dir, templates.batch_id + '.log'))
     with TemporaryDirectory(dir=out_dir) as t:
         for i in item.parse_xml(item_xml):
             row = i.convert_to_row(acc_report, out_dir)
@@ -242,9 +267,8 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None):
                 if log is not None:
                     row['ATTACHMENTS'].append(log)
             template_name = i.identify_template().lower()
-            ident = i['EADUnitID'][:9].replace('.', '-')
-            templates.add_row(template_name, row, ident=ident)
-        templates.serialise(out_dir, sort_by='Identifier', batch_id=batch_id)
+            templates.add_row(template_name, row)
+        templates.serialise(out_dir, sort_by='Identifier')
 
 
 if __name__ == '__main__':
@@ -256,7 +280,6 @@ if __name__ == '__main__':
         'accession_csv', metavar='i', help='recollect accession csv for mapping')
     parser.add_argument(
         'output', help='directory for multimedia assets and output sheets')
-
     parser.add_argument(
         '--audit', '-a',
         help='audit log export')
@@ -266,4 +289,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.accession_csv, args.output, log_file=args.audit, batch_id=args.batch_id)
+    main(args.input, args.accession_csv, args.output, log_file=args.audit, batch_id=args.batch_id, logging=True)

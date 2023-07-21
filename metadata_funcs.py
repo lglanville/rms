@@ -5,12 +5,16 @@ import shutil
 import re
 import calendar
 from uuid import uuid4
+import logging
 import unicodedata
 import multimedia_funcs
 import openpyxl
 from pypdf import PdfWriter, PdfReader
 
 TEMPLATE_DIR = Path(__file__).parent / "Templates"
+
+logger = logging.getLogger('__main__')
+
 
 def slugify(value, allow_unicode=False):
     """
@@ -124,37 +128,41 @@ def concat_fields(*fields, sep='|'):
         if fields != []:
             return sep.join(fields)
 
-def get_multimedia(record):
-    """Get paths for multimedia from temp, or if a pdf from fileshare"""
-    asset_data = {'ASSETS': [], '#REDACT': None}
-    redacted = None
+def is_redacted(record):
     multi = record.get('MulMultiMediaRef_tab')
-    id = record.get('EADUnitID')
     if multi is not None:
         redact = set([x['AdmPublishWebNoPassword'].lower() for x in multi])
         if len(redact) == 2: 
-            print('Warning: multiple publishing permissions for record', id)
+            logger.warning('Multiple publishing permissions for record ' + id)
         if 'no' in redact:
-            asset_data['#REDACT'] = 'Yes'
-        for m in multi:
-            try:
-                fpath = Path(m.get('Multimedia'))
-                if fpath.suffix == '.pdf':
-                    id = record.get('EADUnitID')
-                    folder = multimedia_funcs.find_asset_folder(id)
-                    pdfs = list(multimedia_funcs.find_assets(folder, exts=('.pdf')))
-                    for pdf in pdfs:
-                        if pdf not in asset_data['ASSETS']:
-                            print('Found fresh pdf in storage for', id)
-                            asset_data['ASSETS'].append(pdf)
-                    if pdfs == []:
-                        print('No fresh pdfs found, using EMu version for', id)
-                        asset_data['ASSETS'].append(fpath)
-                else:
-                    asset_data['ASSETS'].append(fpath)
-            except Exception as e:
-                print("Multimedia item not exported from EMu for", id)
-    return asset_data       
+            return True
+
+def get_pdfs(id):
+    assets = []
+    folder = multimedia_funcs.find_asset_folder(id)
+    pdfs = list(multimedia_funcs.find_assets(folder, exts=('.pdf')))
+    for pdf in pdfs:
+        if pdf not in assets:
+            logger.info('Found fresh pdf in storage for ' + id)
+            assets.append(pdf)
+    return assets
+
+
+def get_multimedia(record):
+    """Get paths for multimedia from temp, or if a pdf from fileshare"""
+    multi = record.get('MulMultiMediaRef_tab')
+    id = record.get('EADUnitID')
+    if multi is not None:
+        assets = [Path(m.get('Multimedia')) for m in multi]
+        exts = [x.suffix.lower() for x in assets]
+        if len(exts) > 2:
+            logger.warning('Multiple extensions found for ' + id + ':' + ', '.join(exts))
+        if '.pdf' in exts:
+            fresh_pdfs = get_pdfs(id)
+            if fresh_pdfs is not None:
+                assets = [x for x in assets if x.suffix.lower() != '.pdf']
+                assets.extend(fresh_pdfs)
+        return assets 
 
 
 class Row(dict):
@@ -169,7 +177,7 @@ class Row(dict):
                     shutil.copy2(fpath, target)
                     assets.append(target.relative_to(asset_dir.parent).as_posix())
                 except Exception as e:
-                    print("source file", fpath, "doesn't exist")
+                    logger.error("Multimedia file " + str(fpath) + " for record " + self['Identifier']  + "couldn't be found")
             self[key] = '|'.join(assets)
 
     def concat_pdfs(self, asset_dir):
@@ -181,7 +189,7 @@ class Row(dict):
                 input = PdfReader(open(pdf, "rb"))
                 for i in input.pages:
                     output.add_page(i)
-            print('concatenating', ', '.join([p.name for p in pdfs]), 'to', outfile.name)
+            logger.warning('Concatenating ' + ', '.join([p.name for p in pdfs]) + ' to ' + outfile.name)
             with open(outfile, 'wb') as outputStream:
                 output.write(outputStream)
             self['ASSETS'].append(outfile)
@@ -196,8 +204,10 @@ class Row(dict):
             try:
                 self.concat_pdfs(asset_dir)
             except FileNotFoundError as e:
-                print(e)
+                logger.error("PDF files for record " + self['Identifier']  + " couldn't be found")
+                self['Digitisation notes'] = 'Assets unable to be exported from EMu: ' + '; '.join([x.name for x in assets])
                 self['ASSETS'] = []
+                
         self.copy_assets(asset_dir, 'ASSETS')
         self.copy_assets(asset_dir, 'ATTACHMENTS')
         for key, value in self.items():
@@ -235,9 +245,11 @@ class audit_log(dict):
             return outfile
 
 class template_handler(dict):
-    def __init__(self):
+    def __init__(self, batch_id=None):
         super().__init__()
         self.fieldnames = {}
+        if batch_id is None:
+            self.batch_id = str(uuid4())
 
     def add_template(self, template_name, ident=None):
         template_name = template_name.lower()
@@ -246,7 +258,7 @@ class template_handler(dict):
                 with template.open(encoding='utf-8') as f:
                     if ident is not None:
                         template_name = ident + '-' + template_name
-                    print('adding template', template_name)
+                    logger.info('Adding template ' + template_name)
                     reader = csv.DictReader(f)
                     self[template_name] = []
                     self.fieldnames[template_name] = reader.fieldnames
@@ -255,6 +267,8 @@ class template_handler(dict):
     def add_row(self, template_name, row, ident=None):
         if ident is not None:
            batch_name = ident + '-' + template_name
+        else:
+            batch_name = template_name
         if batch_name not in self.keys():
             self.add_template(template_name, ident=ident)
         fieldnames = self.fieldnames[batch_name]
@@ -262,7 +276,7 @@ class template_handler(dict):
         if ordered_row not in self[batch_name]:
             self[batch_name].append(ordered_row)
         else:
-            print(ordered_row['NODE_TITLE'], 'is already in template', batch_name)
+            logger.info(ordered_row['NODE_TITLE'] + ' is already in template ' + batch_name)
 
     def pop_rows(self, template_name, params):
         """pops any rows matching params"""
@@ -283,14 +297,12 @@ class template_handler(dict):
         for i in range(0, len(rows), rowlimit):
             yield rows[i:i + rowlimit]
 
-    def serialise(self, out_dir, rowlimit=3000, sort_by=None, batch_id=None):
-        if batch_id is None:
-            batch_id = uuid4()
+    def serialise(self, out_dir, rowlimit=3000, sort_by=None):
         for template, rows in self.items():
-            print(f"{template}: {len(rows)}")
+            logger.info(f"{template}: {len(rows)}")
             for c, chunk in enumerate(self.chunk_rows(rows, rowlimit, sort_by), 1):
-                batch_name = f'{template}_{batch_id}_{c}'
-                print(f"{batch_name}: {len(chunk)} rows")
+                batch_name = f'{template}_{self.batch_id}_{c}'
+                logger.info(f"{batch_name}: {len(chunk)} rows")
                 asset_dir = Path(out_dir, batch_name)
                 asset_dir.mkdir(exist_ok=True)
                 wb = openpyxl.Workbook()
@@ -300,8 +312,8 @@ class template_handler(dict):
                     try:
                         sheet.append(row.normalise(asset_dir))
                     except ValueError as e:
+                        logger.error(e)
                         print(row)
-                        print(e)
                 fpath = Path(out_dir, f'{batch_name}.xlsx')
                 wb.save(fpath)
 
