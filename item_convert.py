@@ -228,7 +228,7 @@ class item(record):
         if row['Unit'] is not None:
             row['Request Type'] == 'Request unit'
         else:
-            row['Request Type'] == 'Request item'
+            row['Request Type'] = 'Request item'
         if self.get('TitObjectStatus') is not None:
             if self.get('TitObjectStatus').lower() == 'missing':
                 row['Request Type'] = 'This item is not available'
