@@ -226,7 +226,7 @@ class item(record):
         row['Location if unenclosed'] = self.get_location()
 
         if row['Unit'] is not None:
-            row['Request Type'] == 'Request unit'
+            row['Request Type'] = 'Request unit'
         else:
             row['Request Type'] = 'Request item'
         if self.get('TitObjectStatus') is not None:
