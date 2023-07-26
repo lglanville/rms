@@ -10,6 +10,7 @@ import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 from cat_mapper import ReCollect_report
+from tqdm import tqdm
 
 logging.basicConfig(
     format=f'%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
@@ -179,9 +180,11 @@ class item(record):
         return ', '.join(filter(None, p))
     
     def get_dates(self):
-        e = self.get('EADUnitDateEarliest')
-        date = metadata_funcs.format_date(self.get('EADUnitDate'), self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
-        if e is None:
+        string_date = self.get('EADUnitDate')
+        if string_date is None:
+            string_date = 'Undated'
+        date = metadata_funcs.format_date(string_date, self.get('EADUnitDateEarliest'), self.get('EADUnitDateLatest'))
+        if string_date.lower() == 'undated':
             for x in self.find_in_tuple('AssParentObjectRef', ['EADUnitDate', 'EADUnitDateEarliest', 'EADUnitDateLatest', 'EADLevelAttribute']):
                 d = metadata_funcs.format_date(x.get('EADUnitDate'), x.get('EADUnitDateEarliest'), x.get('EADUnitDateLatest'))
                 if d is not None:
@@ -221,6 +224,15 @@ class item(record):
         row['Identifier'] = "UMA-ITE-" + self.get('EADUnitID').replace('.', '')
         row['Unit'] = self.get_unit()
         row['Location if unenclosed'] = self.get_location()
+
+        if row['Unit'] is not None:
+            row['Request Type'] == 'Request unit'
+        else:
+            row['Request Type'] == 'Request item'
+        if self.get('TitObjectStatus') is not None:
+            if self.get('TitObjectStatus').lower() == 'missing':
+                row['Request Type'] = 'This item is not available'
+                row['Status'] = 'Location unknown'
         row.update(self.previous_ids())
         row.update(self.contributors())
         row.update(self.facet())
@@ -245,7 +257,7 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None, logging
     acc_report = ReCollect_report(accession_csv)
     metadata_funcs.configlogfile(Path(out_dir, templates.batch_id + '.log'), logger)
     with TemporaryDirectory(dir=out_dir) as t:
-        for i in item.parse_xml(item_xml):
+        for i in tqdm(item.parse_xml(item_xml), desc="Converting items"):
             row = i.convert_to_row(acc_report, out_dir)
             xml_path = Path(t, metadata_funcs.slugify(row['Identifier']) + '.xml')
             record.serialise_to_xml('ecatalogue', [i], xml_path)
