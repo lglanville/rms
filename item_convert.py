@@ -247,7 +247,7 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None, logging
     with TemporaryDirectory(dir=out_dir) as t:
         for i in item.parse_xml(item_xml):
             row = i.convert_to_row(acc_report, out_dir)
-            xml_path = Path(t, metadata_funcs.slugify(row['NODE_TITLE']) + '.xml')
+            xml_path = Path(t, metadata_funcs.slugify(row['Identifier']) + '.xml')
             record.serialise_to_xml('ecatalogue', [i], xml_path)
             row['ATTACHMENTS'] = [xml_path]
             if log_file is not None:

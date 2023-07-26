@@ -170,7 +170,7 @@ def get_multimedia(record):
             logger.warning('Multiple extensions found for ' + id + ':' + ', '.join(exts))
         if '.pdf' in exts:
             fresh_pdfs = get_pdfs(id)
-            if fresh_pdfs is not None:
+            if fresh_pdfs != []:
                 assets = [x for x in assets if x.suffix.lower() != '.pdf']
                 assets.extend(fresh_pdfs)
         return assets 
