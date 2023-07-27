@@ -71,18 +71,19 @@ def find_access(access_conditions):
         access_match = access_pattern.search(access_conditions)
         if access_match is not None:
             access_status = acc_status.get(access_match[2].lower())
-            access_conditions = access_conditions.replace(access_match[0], '').strip('. ')
+            access_conditions = access_conditions.replace(access_match[0], '').strip('. \n')
     return access_status, access_conditions
 
 
 def get_access(record):
     """Traverse up the hierarchy to get the nearest parent record's access status"""
-    access_status = "Access not determined"
-    access_conditions = None
-    for x in record.findall('EADAccessRestrictions'):
-        access_status, access_conditions = find_access(x)
-        if access_status != "Access not determined":
-            break
+    access_text = record.get('EADAccessRestrictions')
+    access_status, access_conditions = find_access(access_text)
+    if access_status == "Access not determined":
+        for x in record.findall('EADAccessRestrictions'):
+            access_status, _ = find_access(x)
+            if access_status != "Access not determined":
+                break
     return access_status, access_conditions
 
 

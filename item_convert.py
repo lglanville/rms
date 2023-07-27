@@ -51,29 +51,56 @@ class item(record):
             repl = lambda x: "0"*(2-len(x.group(0)))+x.group(0)
             return re.sub('\d+', repl, loc_name, flags=re.IGNORECASE)
 
-    def identify_template(self):
-        """based on some dicey conditional logic, work out what template each item should use"""
-        gf = self.findall('EADGenreForm')
-        template = "item"
+    def get_genreform(self):
+        gf = []
+        for x in self.findall('EADGenreForm'):
+            for term in x.split('-'):
+                if term not in gf and bool(term):
+                    gf.append(term.lower())
+        return gf
+
+    def is_parent(self):
+        parent = False
+        subitems = self.get('Subitems')
+        if subitems is not None:
+            parent = True
+        return parent
+
+    def identify_genreform(self):
+        template = 'item'
+        gf = self.get_genreform()
+        if 'pictures' in gf:
+            if 'design drawings' in gf:
+                template = 'plan'
+            else:
+                template = 'image'
+        elif 'moving image' in gf:
+             template = 'moving image'
+        elif 'audio recordings ' in gf:
+            template = 'sound'
+        return template
+
+    def get_exts(self):
+        exts = set()
         assets = self.findall('Multimedia')
         if assets is not None:
             exts = {Path(x).suffix for x in assets}
+        return exts
+
+    def identify_template(self):
+        """based on some dicey conditional logic, work out what template each item should use"""
+        template = self.identify_genreform()
+        exts = self.get_exts()
+        if template == 'item':
             if '.jpg' in exts:
-                template = 'Image'
-            elif '.pdf' in exts:
-                template = 'Item'
-        if gf is not None:
-            gf = '|'.join(gf).lower()
-            if 'architectural drawings' in gf:
-                template = 'plan'
-            elif gf.startswith('moving image'):
-                template = 'Moving-Image'
-            elif gf.startswith('audio recordings'):
-                template = 'sound'
-        if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
-            template = 'Legacy-Asset'
+                if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
+                    template = 'legacy-asset'
+                else:
+                    template = 'image'
         if self.get('EADLevelAttribute').lower() == 'multiple items':
             template = 'multiple-items'
+        if self.is_parent():
+            template = 'item'
         return template
 
 

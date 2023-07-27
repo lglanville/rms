@@ -70,7 +70,7 @@ def find_asset_folder(ident):
             if folder.exists():
                 return folder
     except ValueError as e:
-        print(e)
+        pass
 
 
 def find_assets(folder, exts=('.tif', '.tiff')):
