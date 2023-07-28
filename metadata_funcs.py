@@ -181,10 +181,12 @@ def get_multimedia(record):
 
 
 class Row(dict):
-    def copy_assets(self, asset_dir, key):
-        if self.get(key) is not None:
+    def copy_assets(self, asset_dir, column):
+        if self.get(column) is not None:
             assets = []
-            for fpath in self[key]:
+            for fpath in self[column]:
+                if fpath.suffix in ('.tif', '.tiff'):
+                    fpath = multimedia_funcs.create_jpeg(target, asset_dir)
                 target = Path(asset_dir, fpath.name)
                 if target.exists():
                     target = Path(asset_dir, str(uuid4()) + '-' + fpath.name)
@@ -193,7 +195,7 @@ class Row(dict):
                     assets.append(target.relative_to(asset_dir.parent).as_posix())
                 except Exception as e:
                     logger.error("Multimedia file " + str(fpath) + " for record " + self['Identifier']  + "couldn't be found")
-            self[key] = '|'.join(assets)
+            self[column] = '|'.join(assets)
 
     def concat_pdfs(self, asset_dir):
         pdfs = list(filter(lambda x: x.suffix.lower() == '.pdf', self['ASSETS']))
