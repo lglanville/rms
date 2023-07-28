@@ -142,12 +142,14 @@ def concat_fields(*fields, sep='|'):
 
 def is_redacted(record):
     multi = record.get('MulMultiMediaRef_tab')
+    redacted = False
     if multi is not None:
         redact = set([x['AdmPublishWebNoPassword'].lower() for x in multi])
         if len(redact) == 2: 
             logger.warning('Multiple publishing permissions for record ' + record['EADUnitID'])
         if 'no' in redact:
-            return True
+            redacted = True
+    return redacted
 
 def get_pdfs(id):
     assets = []

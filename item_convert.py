@@ -123,7 +123,8 @@ class item(record):
                 if level == 'series':
                     data['Series'] = name
                 elif level == 'item':
-                    data['Part of Item'] = x['EADUnitTitle']
+                    title, _ = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
+                    data['Part of Item'] = f"[{x['EADUnitID']}] {title}"
                 elif level == 'acquisition':
                     data['Accession'] = name
                 elif level == 'consolidation':
@@ -222,12 +223,17 @@ class item(record):
                     break
         return date
 
+    def get_title(self):
+        title, full_title = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
+        if self.is_parent():
+            title = f"[{self.get('EADUnitID')}] {title}"
+        return title, full_title
+
     def convert_to_row(self, acc_report, out_dir):
         """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
         row = {}
-        title, full_title = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
-        row['NODE_TITLE'] = title
-        row['Full Title'] = full_title
+
+        row['NODE_TITLE'], row['Full Title'] = self.get_title()
         row.update(self.get_parent_records(acc_report))
         row['Scope and Content'] = self.get('EADScopeAndContent')
         row['Dimensions'] = self.get('EADDimensions')
@@ -273,7 +279,13 @@ class item(record):
         row['###Condition'] = metadata_funcs.concat_fields(self.get('ConDateChecked'), self.get('ConConditionStatus'), self.get('ConConditionDetails'))
         row['Handling Instructions'] = self.get('ConHandlingInstructions')
         row['ASSETS'] = metadata_funcs.get_multimedia(self)
-        row['#REDACT'] = metadata_funcs.is_redacted(self)
+        if bool(row['ASSETS']):
+            if metadata_funcs.is_redacted(self):
+                row['#REDACT'] = "Yes"
+                if row['Access Status'] != "Closed for public access":
+                    row['Menu'] = "Browse digitised items#n#Available in the Reading Room"
+            else:
+                row['Menu'] = "Browse digitised items#n#Available online"
         return row
 
 
@@ -302,7 +314,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Convert EMu items into ReCollect data')
     parser.add_argument(
-        'input', metavar='i', help='EMu catalogue xml')
+        'input_xml', metavar='i', help='EMu catalogue xml')
     parser.add_argument(
         'accession_csv', metavar='i', help='recollect accession csv for mapping')
     parser.add_argument(
@@ -316,4 +328,4 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.input, args.accession_csv, args.output, log_file=args.audit, batch_id=args.batch_id, logging=True)
+    main(args.input_xml, args.accession_csv, args.output, log_file=args.audit, batch_id=args.batch_id, logging=True)
