@@ -267,6 +267,8 @@ class template_handler(dict):
         self.fieldnames = {}
         if batch_id is None:
             self.batch_id = str(uuid4())
+        else:
+            self.batch_id = batch_id
 
     def add_template(self, template_name, ident=None):
         template_name = template_name.lower()
