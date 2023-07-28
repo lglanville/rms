@@ -186,7 +186,7 @@ class Row(dict):
             assets = []
             for fpath in self[column]:
                 if fpath.suffix in ('.tif', '.tiff'):
-                    fpath = multimedia_funcs.create_jpeg(target, asset_dir)
+                    fpath = multimedia_funcs.create_jpeg(fpath, asset_dir)
                 target = Path(asset_dir, fpath.name)
                 if target.exists():
                     target = Path(asset_dir, str(uuid4()) + '-' + fpath.name)
