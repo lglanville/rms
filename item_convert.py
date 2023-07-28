@@ -92,7 +92,7 @@ class item(record):
         template = self.identify_genreform()
         exts = self.get_exts()
         if template == 'item':
-            if '.jpg' in exts:
+            if '.jpg' in exts or '.tif' in exts:
                 if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
                     template = 'legacy-asset'
                 else:
