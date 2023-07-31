@@ -135,9 +135,8 @@ def format_filter_date(d, latest=False):
 
 def concat_fields(*fields, sep='|'):
     if any(fields):
-        fields = list(filter(None, fields))
-        if fields != []:
-            return sep.join(fields)
+        fields = ['' if f is None else f for f in fields]
+        return sep.join(fields)
 
 def is_redacted(record):
     multi = record.get('MulMultiMediaRef_tab')
