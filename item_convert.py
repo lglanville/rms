@@ -165,13 +165,13 @@ class item(record):
             for facet in facet:
                 facet = facet.get('EADPhysicalFacet')
                 if facet.lower().startswith('colour:'):
-                    facet_dict['Colour Depth'] = facet.split(':').strip()
+                    facet_dict['Colour Depth'] = facet.split(':')[1].strip()
                 elif facet.lower() in ('colour', 'black and white', 'hand coloured', 'sepia'):
                     facet_dict['Colour Depth'] = facet
                 elif facet.lower().startswith('base:'):
-                    facet_dict['Base Material'] = facet.split(':').strip()
+                    facet_dict['Base Material'] = facet.split(':')[1].strip()
                 elif facet.lower().startswith('duration:'):
-                    facet_dict['Duration'] = facet.split(':').strip()
+                    facet_dict['Duration'] = facet.split(':')[1].strip()
                 else:
                     facet_dict['Physical Facet'].append(facet)
         facet_dict['Physical Facet'] = '|'.join(facet_dict['Physical Facet'])
