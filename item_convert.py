@@ -219,7 +219,7 @@ class item(record):
                     level = x.get('EADLevelAttribute')
                     if level.lower() in ('acquisition', 'consolidation'):
                         level = 'accession'
-                    date = d + "|Date of " + level
+                    date = "Undated;;#ng#" + d + "|Date of " + level
                     break
         return date
 
