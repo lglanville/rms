@@ -320,7 +320,7 @@ class template_handler(dict):
         for template, rows in self.items():
             logger.info(f"{template}: {len(rows)}")
             for c, chunk in tqdm(enumerate(self.chunk_rows(rows, rowlimit, sort_by), 1)):
-                batch_name = f'{template}_{self.batch_id}_{c}'
+                batch_name = f'{self.batch_id}_{template}_{c}'
                 logger.info(f"{batch_name}: {len(chunk)} rows")
                 asset_dir = Path(out_dir, batch_name)
                 asset_dir.mkdir(exist_ok=True)
