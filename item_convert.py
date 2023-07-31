@@ -93,14 +93,13 @@ class item(record):
         exts = self.get_exts()
         if template == 'item':
             if '.jpg' in exts or '.tif' in exts:
-                if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
-                    template = 'legacy-asset'
-                else:
-                    template = 'image'
+                template = 'image'
         if self.get('EADLevelAttribute').lower() == 'multiple items':
             template = 'multiple-items'
         if self.is_parent():
             template = 'item'
+        if str(self.get('EADUnitTitle')).startswith('Digital Asset:'):
+            template = 'legacy-asset'
         return template
 
 
