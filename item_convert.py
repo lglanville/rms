@@ -134,7 +134,7 @@ class item(record):
                     else:
                         data['Accession'] = name
                 else:
-                    logger.warning("Unrecognised parent", x)
+                    logger.warning("Unrecognised parent: "+ " ".join(x.values()))
         if data.get('Accession') is None:
             if lot_irn is not None:
                 data['Accession'] = "Accession lot " + lot_irn
