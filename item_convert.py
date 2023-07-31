@@ -10,7 +10,6 @@ import metadata_funcs
 from emu_xml_parser import record
 import openpyxl
 from cat_mapper import ReCollect_report
-from tqdm import tqdm
 
 logging.basicConfig(
     format=f'%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
@@ -295,7 +294,7 @@ def main(item_xml, accession_csv, out_dir, log_file=None, batch_id=None, logging
     acc_report = ReCollect_report(accession_csv)
     metadata_funcs.configlogfile(Path(out_dir, templates.batch_id + '.log'), logger)
     with TemporaryDirectory(dir=out_dir) as t:
-        for i in tqdm(item.parse_xml(item_xml), desc="Converting items"):
+        for i in item.parse_xml(item_xml):
             row = i.convert_to_row(acc_report, out_dir)
             xml_path = Path(t, metadata_funcs.slugify(row['Identifier']) + '.xml')
             record.serialise_to_xml('ecatalogue', [i], xml_path)
