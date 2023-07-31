@@ -123,7 +123,7 @@ class item(record):
                 if level == 'series':
                     data['Series'] = name
                 elif level == 'item':
-                    title, _ = metadata_funcs.shorten_title(self.get('EADUnitTitle'))
+                    title, _ = metadata_funcs.shorten_title(x.get('EADUnitTitle'))
                     data['Part of Item'] = f"[{x['EADUnitID']}] {title}"
                 elif level == 'acquisition':
                     data['Accession'] = name
@@ -231,7 +231,7 @@ class item(record):
 
     def convert_to_row(self, acc_report, out_dir):
         """Convert EMu json for an item into a relatively flat dictionary mapped for ReCollect"""
-        row = {}
+        row = metadata_funcs.Row()
 
         row['NODE_TITLE'], row['Full Title'] = self.get_title()
         row.update(self.get_parent_records(acc_report))
