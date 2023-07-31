@@ -76,7 +76,7 @@ class item(record):
                 template = 'image'
         elif 'moving image' in gf:
              template = 'moving-image'
-        elif 'audio recordings ' in gf:
+        elif 'audio recordings' in gf:
             template = 'sound'
         return template
 
