@@ -221,7 +221,7 @@ class Row(dict):
                 self.concat_pdfs(asset_dir)
             except FileNotFoundError as e:
                 logger.error("PDF files for record " + self['Identifier']  + " couldn't be found")
-                self['Digitisation notes'] = 'Assets unable to be exported from EMu: ' + '; '.join([x.name for x in assets])
+                self['Digitisation notes'] = 'Assets unable to be exported from EMu: ' + '; '.join([x.name for x in self.get('ASSETS')])
                 self['ASSETS'] = []
                 
         self.copy_assets(asset_dir, 'ASSETS')
