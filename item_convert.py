@@ -235,7 +235,7 @@ class item(record):
         row.update(self.get_parent_records(acc_report))
         row['Scope and Content'] = self.get('EADScopeAndContent')
         row['Dimensions'] = self.get('EADDimensions')
-        row['Internal Notes'] = '\n'.join(filter(None, [self.get('NotNotes') self.get('EADAppraisalInformation')]))
+        row['Internal Notes'] = '\n'.join(filter(None, [self.get('NotNotes'), self.get('EADAppraisalInformation')]))
         row['Access Status'], row['Access Conditions'] = metadata_funcs.get_access(self)
         row['Copyright Status'] = self.guess_copyright()
         row['Conditions of Use and Reproduction'] = self.get('EADUseRestrictions')
