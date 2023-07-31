@@ -10,7 +10,6 @@ import unicodedata
 import multimedia_funcs
 import openpyxl
 from pypdf import PdfWriter, PdfReader
-from tqdm import tqdm
 
 TEMPLATE_DIR = Path(__file__).parent / "Templates"
 
@@ -319,7 +318,7 @@ class template_handler(dict):
     def serialise(self, out_dir, rowlimit=3000, sort_by=None):
         for template, rows in self.items():
             logger.info(f"{template}: {len(rows)}")
-            for c, chunk in tqdm(enumerate(self.chunk_rows(rows, rowlimit, sort_by), 1)):
+            for c, chunk in enumerate(self.chunk_rows(rows, rowlimit, sort_by), 1):
                 batch_name = f'{self.batch_id}_{template}_{c}'
                 logger.info(f"{batch_name}: {len(chunk)} rows")
                 asset_dir = Path(out_dir, batch_name)
