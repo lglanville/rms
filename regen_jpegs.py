@@ -1,6 +1,7 @@
 from pathlib import Path
 import argparse
 import sys
+import shutil
 import openpyxl
 import multimedia_funcs
 
@@ -10,7 +11,7 @@ def main(workbookpath, min=None):
         dim = f'{min}x{min}^>'
     wb = openpyxl.open(workbookpath)
     workbookpath = Path(workbookpath)
-    asset_dir = workbookpath.parent / workbookpath.stem
+    asset_dir = workbookpath.parent / workbookpath.stem + '_new_assets'
     asset_dir.mkdir(exist_ok=True)
     for ws in wb.worksheets:
         asset_col = None
@@ -29,12 +30,20 @@ def main(workbookpath, min=None):
                 tifs = list(multimedia_funcs.find_assets(asset_fol))
                 if len(tifs) != len(jpegs):
                     print(f'Warning: {ident} has {len(jpegs)} in EMu and {len(tifs)} in storage')
+                j = []
                 if bool(tifs):
-                    j = []
                     for tif in tifs:
                         jpeg = multimedia_funcs.create_jpeg(tif, asset_dir, dim=dim)
                         j.append(jpeg.relative_to(asset_dir.parent).as_posix())
-                    row[asset_col].value = '|'.join(j)
+                else:
+                    for jpeg in jpegs:
+                        p = Path(workbookpath.parent / jpeg)
+                        if p.exists():
+                            shutil.copy2(p, ass)
+                            j.append(p.relative_to(asset_dir.parent).as_posix())
+                        else:
+                            print("Warning:", jpeg, "not found")
+                row[asset_col].value = '|'.join(j)
     p = Path(workbookpath)
     new_path = p.parent / (p.stem+'_new_assets.xlsx')
     print("Saving workbook to", new_path)
