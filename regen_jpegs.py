@@ -18,10 +18,22 @@ def main(workbookpath, min=None):
         for cell in ws[1]:
             if cell.value == 'ASSETS':
                 asset_col = cell.column - 1
+            if cell.value == 'ATTACHMENTS':
+                attach_col = cell.column - 1
             elif cell.value == 'Previous System ID':
                 id_col = cell.column - 1
         for row in ws.iter_rows(min_row=2):
             assets = row[asset_col].value
+            attachments = row[attach_col].value
+            if bool(attachments):
+                att = []
+                attachments = attachments.split('|')
+                for a in attachments:
+                    p = Path(workbookpath.parent / a)
+                    if p.exists():
+                        shutil.copy2(p, asset_dir)
+                        att.append(p.relative_to(asset_dir.parent).as_posix())
+                row[attach_col].value = '|'.join(att)
             if assets is not None:
                 jpegs = assets.split('|')
                 ident = row[id_col].value

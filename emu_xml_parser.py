@@ -32,6 +32,7 @@ class record(dict):
             for x in range(8):
                 text = text.replace(chr(x), ' ')
             text = text.replace(chr(19), '')
+            text = text.replace(chr(20), '')
             text = text.replace(chr(24), '')
             text = text.replace(chr(25), '')
             text = text.replace(chr(28), '')
