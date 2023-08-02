@@ -25,7 +25,6 @@ def main(workbookpath, min=None):
             if assets is not None:
                 jpegs = assets.split('|')
                 ident = row[id_col].value
-                print(ident, jpegs)
                 asset_fol = multimedia_funcs.find_asset_folder(ident)
                 tifs = list(multimedia_funcs.find_assets(asset_fol))
                 if len(tifs) != len(jpegs):
@@ -39,7 +38,7 @@ def main(workbookpath, min=None):
                     for jpeg in jpegs:
                         p = Path(workbookpath.parent / jpeg)
                         if p.exists():
-                            shutil.copy2(p, ass)
+                            shutil.copy2(p, asset_dir)
                             j.append(p.relative_to(asset_dir.parent).as_posix())
                         else:
                             print("Warning:", jpeg, "not found")
