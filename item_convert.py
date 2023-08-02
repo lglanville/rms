@@ -248,7 +248,7 @@ class item(record):
         cp = self.creation_place()
         if cp is not None:
             row['Subject (Place)'].append(cp)
-        row['Subject (Work)'] = list(self.findall('EADGeographicName'))
+        row['Subject (Work)'] = list(self.findall('EADTitle'))
         row['###Dates'] = self.get_dates()
         row['EMu IRN'] = self.get('irn')
         row['Previous System ID'] = self.get('EADUnitID')

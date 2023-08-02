@@ -159,6 +159,13 @@ def get_pdfs(id):
             assets.append(pdf)
     return assets
 
+def regen_jpegs(id, asset_dir):
+    assets = []
+    folder = multimedia_funcs.find_asset_folder(id)
+    tifs = list(multimedia_funcs.find_assets(folder, exts=('.tif')))
+    for t in tifs:
+        assets.append(multimedia_funcs.create_jpeg(t, asset_dir))
+    return assets
 
 def get_multimedia(record):
     """Get paths for multimedia from temp, or if a pdf from fileshare"""
