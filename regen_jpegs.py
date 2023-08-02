@@ -11,7 +11,7 @@ def main(workbookpath, min=None):
         dim = f'{min}x{min}^>'
     wb = openpyxl.open(workbookpath)
     workbookpath = Path(workbookpath)
-    asset_dir = workbookpath.parent / workbookpath.stem + '_new_assets'
+    asset_dir = workbookpath.parent / (workbookpath.stem + '_new_assets')
     asset_dir.mkdir(exist_ok=True)
     for ws in wb.worksheets:
         asset_col = None
