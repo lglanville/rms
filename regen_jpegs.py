@@ -5,6 +5,34 @@ import shutil
 import openpyxl
 import multimedia_funcs
 
+def copy_asset(asset):
+    p = Path(workbookpath.parent / a)
+    if p.exists():
+        shutil.copy2(p, asset_dir)
+        att.append(p.relative_to(asset_dir.parent).as_posix())
+
+def replace_assets(assets, asset_dir, min):
+    jpegs = assets.split('|')
+    ident = row[id_col].value
+    asset_fol = multimedia_funcs.find_asset_folder(ident)
+    tifs = list(multimedia_funcs.find_assets(asset_fol))
+    if len(tifs) != len(jpegs):
+        print(f'Warning: {ident} has {len(jpegs)} in EMu and {len(tifs)} in storage')
+    j = []
+    if bool(tifs):
+        for tif in tifs:
+            jpeg = multimedia_funcs.create_jpeg(tif, asset_dir, dim=min)
+            j.append(jpeg.relative_to(asset_dir.parent).as_posix())
+    else:
+        for jpeg in jpegs:
+            p = Path(workbookpath.parent / jpeg)
+            if p.exists():
+                shutil.copy2(p, asset_dir)
+                j.append(p.relative_to(asset_dir.parent).as_posix())
+            else:
+                print("Warning:", jpeg, "not found")
+    return j
+
 def main(workbookpath, min=None):
     dim = '2048x2048^>'
     if min is not None:
@@ -35,26 +63,8 @@ def main(workbookpath, min=None):
                         att.append(p.relative_to(asset_dir.parent).as_posix())
                 row[attach_col].value = '|'.join(att)
             if assets is not None:
-                jpegs = assets.split('|')
-                ident = row[id_col].value
-                asset_fol = multimedia_funcs.find_asset_folder(ident)
-                tifs = list(multimedia_funcs.find_assets(asset_fol))
-                if len(tifs) != len(jpegs):
-                    print(f'Warning: {ident} has {len(jpegs)} in EMu and {len(tifs)} in storage')
-                j = []
-                if bool(tifs):
-                    for tif in tifs:
-                        jpeg = multimedia_funcs.create_jpeg(tif, asset_dir, dim=dim)
-                        j.append(jpeg.relative_to(asset_dir.parent).as_posix())
-                else:
-                    for jpeg in jpegs:
-                        p = Path(workbookpath.parent / jpeg)
-                        if p.exists():
-                            shutil.copy2(p, asset_dir)
-                            j.append(p.relative_to(asset_dir.parent).as_posix())
-                        else:
-                            print("Warning:", jpeg, "not found")
-                row[asset_col].value = '|'.join(j)
+                jpegs = replace_assets(assets, asset_dir, min=min)
+                row[asset_col].value = '|'.join(jpegs)
     p = Path(workbookpath)
     new_path = p.parent / (p.stem+'_new_assets.xlsx')
     print("Saving workbook to", new_path)

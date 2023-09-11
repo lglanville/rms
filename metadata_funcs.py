@@ -316,7 +316,7 @@ class template_handler(dict):
 
     def chunk_rows(self, rows, rowlimit, sort_by):
         if sort_by is not None:
-            rows = sorted(rows, key=lambda row: row[sort_by])
+            rows = sorted(rows, key=lambda row: str(row[sort_by]))
         for i in range(0, len(rows), rowlimit):
             yield rows[i:i + rowlimit]
 

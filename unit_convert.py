@@ -27,8 +27,9 @@ class unit(record):
 
     def convert_name(self):
         name = self.get('LocHolderName')
-        repl = lambda x: x.group(1) +" " + "0"*(4-len(x.group(2)))+x.group(2)
-        return re.sub(r'(unit|album) (\d+)', repl, name, flags=re.IGNORECASE)
+        if name is not None:
+            repl = lambda x: x.group(1) +" " + "0"*(4-len(x.group(2)))+x.group(2)
+            return re.sub(r'(unit|album) (\d+)', repl, name, flags=re.IGNORECASE)
 
     def get_location(self):
         loc_name = self['LocHolderLocationRef'].get('LocLocationCode')
