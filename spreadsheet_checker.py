@@ -3,11 +3,16 @@ import csv
 from pathlib import Path
 import argparse
 import openpyxl
+UPDATE_FIELDNAMES = ["Node ID", "Node Type", "Node Title", "#REDACT"]
 
 def get_fieldnames(template):
     with open(template, encoding='utf-8') as f:
         reader = csv.DictReader(f)
         return reader.fieldnames
+
+def get_update_fieldnames(template):
+    fnames = UPDATE_FIELDNAMES + get_fieldnames(template)[4:]
+    return fnames
 
 class excel_sheet():
     def __init__(self, wb_path):
@@ -15,6 +20,10 @@ class excel_sheet():
         self.wb = openpyxl.load_workbook(filename=wb_path)
         self.sheet = self.wb.active
         self.fieldnames = [x.value for x in self.sheet[1]]
+        if "Node ID" in self.fieldnames:
+            self.update_sheet = True
+        else:
+            self.update_sheet = False
 
     def iter_records(self, fieldname_map=None):
         for row in self.sheet.iter_rows(2):
@@ -44,18 +53,21 @@ class excel_sheet():
         wrong_fieldnames = [x for x in self.fieldnames if x not in base_fieldnames]
         possible_fieldnames = [x for x in base_fieldnames if x not in self.fieldnames]
         fieldname_map = {}
-        for f in wrong_fieldnames:
-            print(f, 'is not in template. Did you mean:')
-            for count, x in enumerate(possible_fieldnames, 1):
-                print(count, ":", x)
-            replacement = None
-            while replacement == None:
-                i = input("->")
-                try:
-                    replacement = int(i) - 1
-                except Exception as e:
-                    print(i, 'is not a valid option')
-            fieldname_map[f] = possible_fieldnames[replacement]
+        for f in self.fieldnames:
+            if f in base_fieldnames:
+                fieldname_map[f] = f
+            else:
+                print(f, 'is not in template. Did you mean:')
+                for count, x in enumerate(possible_fieldnames, 1):
+                    print(count, ":", x)
+                replacement = None
+                while replacement == None:
+                    i = input("->")
+                    try:
+                        replacement = int(i) - 1
+                    except Exception as e:
+                        print(i, 'is not a valid option')
+                fieldname_map[f] = possible_fieldnames[replacement]
         return fieldname_map
 
     def fix_fieldnames(self, template):
@@ -72,10 +84,28 @@ class excel_sheet():
         new_path = self.path.parent / (self.path.stem + '_ordered.xlsx')
         new_wb.save(new_path)
 
+    def fix_update_fieldnames(self, template):
+        new_wb = openpyxl.Workbook()
+        new_sheet = new_wb.active
+        base_fieldnames = get_update_fieldnames(template)
+        fieldname_map = self.map_fieldnames(base_fieldnames)
+        base_fieldnames = [x for x in base_fieldnames if x in fieldname_map.values()]
+        new_sheet.append(base_fieldnames)
+        for row in self.iter_records(fieldname_map):
+            ordered_row = []
+            for f in base_fieldnames:
+                ordered_row.append(row.get(f))
+            new_sheet.append(ordered_row)
+        new_path = self.path.parent / (self.path.stem + '_ordered.xlsx')
+        new_wb.save(new_path)
+
 
 def main(sheet, base_template):
     sheet = excel_sheet(sheet)
-    sheet.fix_fieldnames(base_template)
+    if not sheet.update_sheet:
+        sheet.fix_fieldnames(base_template)
+    else:
+        sheet.fix_update_fieldnames(base_template)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
