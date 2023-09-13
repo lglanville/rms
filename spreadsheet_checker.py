@@ -67,7 +67,7 @@ class excel_sheet():
                         replacement = int(i) - 1
                     except Exception as e:
                         print(i, 'is not a valid option')
-                fieldname_map[f] = possible_fieldnames[replacement]
+                fieldname_map[f] = possible_fieldnames.pop(replacement)
         return fieldname_map
 
     def fix_fieldnames(self, template):
