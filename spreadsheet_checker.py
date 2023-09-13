@@ -20,7 +20,7 @@ class excel_sheet():
         self.wb = openpyxl.load_workbook(filename=wb_path)
         self.sheet = self.wb.active
         self.fieldnames = [x.value for x in self.sheet[1]]
-        if "Node ID" in self.fieldnames:
+        if "Node ID" in self.fieldnames or "Item ID" in self.fieldnames:
             self.update_sheet = True
         else:
             self.update_sheet = False
