@@ -109,7 +109,7 @@ def main(sheet, base_template):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Check an input spreadsheet against a recollect template, reorder rows as required and map missing rows')
+        description='Check an input spreadsheet against a recollect template, reorder rows as required and map incorrect columns')
     parser.add_argument(
         'input_sheet', metavar='i', help='Excel sheet for upload')
     parser.add_argument(
